@@ -3,8 +3,7 @@
 import sys
 
 from systemrdl import RDLCompiler, RDLCompileError
-
-import ralbot_ipxact
+from ralbot.ipxact import IPXACTExporter
 
 #===============================================================================
 input_files = sys.argv[1:]
@@ -18,4 +17,5 @@ try:
 except RDLCompileError:
     sys.exit(1)
 
-ralbot_ipxact.export(root, "out.xml")
+ipxact = IPXACTExporter()
+ipxact.export(root, "out.xml")
