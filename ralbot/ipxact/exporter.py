@@ -109,11 +109,11 @@ class IPXACTExporter:
         if not node.get_property("ispresent"):
             self.add_value(addressBlock, "ipxact:isPresent", "0")
         
-        self.add_value(addressBlock, "ipxact:baseAddress", "%d" % node.absolute_address)
+        self.add_value(addressBlock, "ipxact:baseAddress", "'h%x" % node.absolute_address)
         
         # DNE: <ipxact:typeIdentifier>
         
-        self.add_value(addressBlock, "ipxact:range", "%d" % node.size)
+        self.add_value(addressBlock, "ipxact:range", "'h%x" % node.size)
         
         # RDL only encodes the bus-width at the register level, but IP-XACT
         # only encodes this at the addressBlock level!
@@ -163,16 +163,16 @@ class IPXACTExporter:
             for dim in node.inst.array_dimensions:
                 self.add_value(registerFile, "ipxact:dim", "%d" % dim)
         
-        self.add_value(registerFile, "ipxact:addressOffset", "%d" % node.inst.addr_offset)
+        self.add_value(registerFile, "ipxact:addressOffset", "'h%x" % node.inst.addr_offset)
         
         # DNE: <ipxact:typeIdentifier>
         
         if node.inst.is_array:
             # For arrays, ipxact:range also defines the increment between indexes
             # Must use stride instead
-            self.add_value(registerFile, "ipxact:range", "%d" % node.inst.array_stride)
+            self.add_value(registerFile, "ipxact:range", "'h%x" % node.inst.array_stride)
         else:
-            self.add_value(registerFile, "ipxact:range", "%d" % node.size)
+            self.add_value(registerFile, "ipxact:range", "'h%x" % node.size)
         
         for child in node.children(skip_not_present=False):
             if isinstance(child, RegNode):
@@ -205,7 +205,7 @@ class IPXACTExporter:
             for dim in node.inst.array_dimensions:
                 self.add_value(register, "ipxact:dim", "%d" % dim)
         
-        self.add_value(register, "ipxact:addressOffset", "%d" % node.inst.addr_offset)
+        self.add_value(register, "ipxact:addressOffset", "'h%x" % node.inst.addr_offset)
         
         # DNE: <ipxact:typeIdentifier>
         
@@ -254,7 +254,7 @@ class IPXACTExporter:
             field.appendChild(resets_el)
             reset_el = self.doc.createElement("ipxact:reset")
             resets_el.appendChild(reset_el)
-            self.add_value(reset_el, "ipxact:value", "%d" % reset)
+            self.add_value(reset_el, "ipxact:value", "'h%x" % reset)
         
         # DNE: <ipxact:typeIdentifier>
         
@@ -287,7 +287,7 @@ class IPXACTExporter:
                     enum_value.rdl_name,
                     enum_value.rdl_desc
                 )
-                self.add_value(enum_value_el, "ipxact:value", "%d" % enum_value.value)
+                self.add_value(enum_value_el, "ipxact:value", "'h%x" % enum_value.value)
                 # DNE <ipxact:vendorExtensions>
                 
         onwrite = node.get_property("onwrite")
