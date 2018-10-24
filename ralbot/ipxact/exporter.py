@@ -1,7 +1,7 @@
 import enum
 
 from xml.dom.minidom import getDOMImplementation
-from systemrdl.node import RootNode, AddressableNode, RegNode
+from systemrdl.node import RootNode, RegNode
 from systemrdl.node import AddrmapNode, RegfileNode, MemNode
 from systemrdl import rdltypes
 
