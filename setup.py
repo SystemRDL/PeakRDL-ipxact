@@ -22,7 +22,7 @@ setuptools.setup(
     packages=['ralbot.ipxact'],
     include_package_data=True,
     install_requires=[
-        "systemrdl-compiler",
+        "systemrdl-compiler>=1.2.0",
     ],
     classifiers=(
         "Development Status :: 5 - Production/Stable",
@@ -32,7 +32,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3 :: Only",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)  e",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
         "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
     ),
