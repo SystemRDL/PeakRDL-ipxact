@@ -1,3 +1,5 @@
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ralbot-html.svg)](https://pypi.org/project/ralbot-html)
+
 # RALBot-ipxact
 Convert compiled SystemRDL input into IP-XACT XML
 
