@@ -22,7 +22,7 @@ setuptools.setup(
     packages=['ralbot.ipxact'],
     include_package_data=True,
     install_requires=[
-        "systemrdl-compiler>=1.2.0",
+        "systemrdl-compiler>=1.5.0",
     ],
     classifiers=(
         "Development Status :: 5 - Production/Stable",
