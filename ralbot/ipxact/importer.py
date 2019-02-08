@@ -606,13 +606,13 @@ class IPXACTImporter(RDLImporter):
             elif child.localName in ("reset", "resets"):
                 if child.localName == "resets":
                     # pick the first reset
-                    reset = self.get_first_child_by_tag(child, self.ns + "reset")
+                    reset = self.get_first_child_by_tag(child, self.ns + ":reset")
                     if reset is None:
                         continue
                 else:
                     reset = child
 
-                value_el = self.get_first_child_by_tag(reset, self.ns + "value")
+                value_el = self.get_first_child_by_tag(reset, self.ns + ":value")
                 if value_el:
                     d['reset.value'] = self.parse_integer(get_text(value_el))
 
@@ -695,16 +695,22 @@ class IPXACTImporter(RDLImporter):
         """
         entries = {}
         for enumeratedValue in self.iterelements(enumeratedValues):
-            if enumeratedValue.tagName != "enumeratedValue":
+            if enumeratedValue.localName != "enumeratedValue":
                 continue
 
             # Flatten element values
             d = {}
-            for child in self.iterelements(enumeratedValues):
+            for child in self.iterelements(enumeratedValue):
                 if child.localName in ("name", "displayName", "description"):
                     d[child.localName] = get_text(child)
                 elif child.localName == "value":
                     d[child.localName] = self.parse_integer(get_text(child))
+
+            # Check for required values
+            required = {'name', 'value'}
+            missing = required - set(d.keys())
+            for m in missing:
+                self.msg.fatal("enumeratedValue is missing required tag '%s'" % m, self.src_ref)
 
             entry_name = d['name']
             entry_value = d['value']

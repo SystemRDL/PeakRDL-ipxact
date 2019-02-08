@@ -167,11 +167,11 @@ addrmap some_register_map {
        desc = "This field represents the chips part number";
      } part_num[31:4] = 28'h12_34_56_7; // Verilog Style number with _'s
 
-     field {
-       hw   = na;                                          // This combination creates the ID num as a constant interal
-       sw   = r;                                           // to the reg block
-       desc = "This field represents the chips revision number";
-     } rev_num[3:0] = 4'b00_01; // Verilog Style number with _'s
+    // field {
+    //   hw   = na;                                          // This combination creates the ID num as a constant interal
+    //   sw   = r;                                           // to the reg block
+    //   desc = "This field represents the chips revision number";
+    // } rev_num[3:0] = 4'b00_01; // Verilog Style number with _'s
   };                                                       // End chip_id register definition
 
 
@@ -184,7 +184,7 @@ addrmap some_register_map {
   spi4_pkt_count_reg spi4_pkt_count      @0x0020;
   gige_pkt_count_reg gige_pkt_count_reg;
 
-  fifoRfile          fifo_port[8]        @0x100 += 0x10;     // Create 8 Instances of Fifo Reg File Starting at Address=0x100
-  vc_pkt_count_reg   vc_pkt_count[16]   @0x1000 +=0x10;
+  fifoRfile          fifo_port[8]        @0x100 += 0x4;     // Create 8 Instances of Fifo Reg File Starting at Address=0x100
+  vc_pkt_count_reg   vc_pkt_count[16]   @0x1000 +=0x4;
 
 };                                                         // End some_register_map

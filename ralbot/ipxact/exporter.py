@@ -202,6 +202,13 @@ class IPXACTExporter:
             self.add_value(register, "ipxact:isPresent", "0")
 
         if node.inst.is_array:
+            if node.inst.array_stride != (node.get_property("regwidth") / 8):
+                # TODO: Replace this with message printing infrastructure
+                raise ValueError("Cannot export sparse arrays of rergisters")
+                #self.msg.fatal(
+                #    "IP-XACT does not support register arrays whose stride is larger then the register's size",
+                #    node.inst.inst_src_ref
+                #)
             for dim in node.inst.array_dimensions:
                 self.add_value(register, "ipxact:dim", "%d" % dim)
 
