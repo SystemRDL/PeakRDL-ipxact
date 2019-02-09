@@ -3,6 +3,7 @@ import enum
 from xml.dom.minidom import getDOMImplementation
 from systemrdl.node import RootNode, RegNode
 from systemrdl.node import AddrmapNode, RegfileNode, MemNode
+from systemrdl import RDLExporter
 from systemrdl import rdltypes
 
 class Standard(enum.IntEnum):
@@ -15,8 +16,9 @@ class Standard(enum.IntEnum):
     IEEE_1685_2014 = 2014
 
 #===============================================================================
-class IPXACTExporter:
-    def __init__(self, **kwargs):
+class IPXACTExporter(RDLExporter):
+    def __init__(self, env, **kwargs):
+        super().__init__(env)
 
         self.vendor = kwargs.pop("vendor", "example.org")
         self.library = kwargs.pop("library", "mylibrary")
@@ -203,12 +205,10 @@ class IPXACTExporter:
 
         if node.inst.is_array:
             if node.inst.array_stride != (node.get_property("regwidth") / 8):
-                # TODO: Replace this with message printing infrastructure
-                raise ValueError("Cannot export sparse arrays of rergisters")
-                #self.msg.fatal(
-                #    "IP-XACT does not support register arrays whose stride is larger then the register's size",
-                #    node.inst.inst_src_ref
-                #)
+                self.msg.fatal(
+                    "IP-XACT does not support register arrays whose stride is larger then the register's size",
+                    node.inst.inst_src_ref
+                )
             for dim in node.inst.array_dimensions:
                 self.add_value(register, "ipxact:dim", "%d" % dim)
 

@@ -10,5 +10,4 @@ coverage3 run $this_dir/../setup.py test
 coverage3 html -d $this_dir/htmlcov
 
 # Run lint
-#cd ralbot
-#pylint --rcfile $this_dir/pylint.rc ipxact | tee $this_dir/lint.rpt
+pylint --rcfile $this_dir/pylint.rc ralbot | tee $this_dir/lint.rpt

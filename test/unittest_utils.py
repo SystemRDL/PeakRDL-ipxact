@@ -34,11 +34,11 @@ class IPXACTTestCase(unittest.TestCase):
                 rdlc.compile_file(os.path.join(this_dir, file))
             elif file.endswith(".xml"):
                 ipxact.import_file(os.path.join(this_dir, file))
-        return rdlc.elaborate(top_name)
+        return (rdlc.elaborate(top_name), rdlc.env)
     
-    def export(self, node, file):
+    def export(self, env, node, file):
         this_dir = os.path.dirname(os.path.realpath(__file__))
-        ipxact = IPXACTExporter()
+        ipxact = IPXACTExporter(env)
         ipxact.export(node, os.path.join(this_dir, file))
 
     def compare(self, file1, file2):
