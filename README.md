@@ -17,12 +17,18 @@ Install from [PyPi](https://pypi.org/project/ralbot-ipxact) using pip:
 Pass the elaborated output of the [SystemRDL Compiler](http://systemrdl-compiler.readthedocs.io)
 into the exporter.
 
-Assuming `root` is the elaborated top-level node, or an internal `AddrmapNode`:
-
 ```python
-from ralbot.ipxact import IPXACTExporter
+from ralbot.ipxact import RDLCompiler, IPXACTExporter
 
-exporter = IPXACTExporter()
+rdlc = RDLCompiler()
+
+try:
+    rdlc.compile_file("path/to/my.rdl")
+    root = rdlc.elaborate()
+except RDLCompileError:
+    sys.exit(1)
+
+exporter = IPXACTExporter(rdlc.env)
 
 exporter.export(root, "path/to/output.xml")
 ```
