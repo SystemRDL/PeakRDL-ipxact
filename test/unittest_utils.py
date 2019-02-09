@@ -10,9 +10,6 @@ from ralbot.ipxact import IPXACTImporter, IPXACTExporter
 
 #===============================================================================
 class TestPrinter(MessagePrinter):
-    #def print_message(self, severity, text, context):
-    #    logging.error(text)
-    
     def emit_message(self, lines):
         text = "\n".join(lines)
         logging.info(text)
@@ -34,11 +31,11 @@ class IPXACTTestCase(unittest.TestCase):
                 rdlc.compile_file(os.path.join(this_dir, file))
             elif file.endswith(".xml"):
                 ipxact.import_file(os.path.join(this_dir, file))
-        return (rdlc.elaborate(top_name), rdlc.env)
+        return rdlc.elaborate(top_name)
     
-    def export(self, env, node, file):
+    def export(self, node, file):
         this_dir = os.path.dirname(os.path.realpath(__file__))
-        ipxact = IPXACTExporter(env)
+        ipxact = IPXACTExporter()
         ipxact.export(node, os.path.join(this_dir, file))
 
     def compare(self, file1, file2):

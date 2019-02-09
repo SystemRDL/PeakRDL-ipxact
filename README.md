@@ -28,7 +28,7 @@ try:
 except RDLCompileError:
     sys.exit(1)
 
-exporter = IPXACTExporter(rdlc.env)
+exporter = IPXACTExporter()
 
 exporter.export(root, "path/to/output.xml")
 ```

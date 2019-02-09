@@ -3,7 +3,6 @@ import enum
 from xml.dom.minidom import getDOMImplementation
 from systemrdl.node import RootNode, RegNode
 from systemrdl.node import AddrmapNode, RegfileNode, MemNode
-from systemrdl import RDLExporter
 from systemrdl import rdltypes
 
 class Standard(enum.IntEnum):
@@ -16,9 +15,9 @@ class Standard(enum.IntEnum):
     IEEE_1685_2014 = 2014
 
 #===============================================================================
-class IPXACTExporter(RDLExporter):
-    def __init__(self, env, **kwargs):
-        super().__init__(env)
+class IPXACTExporter:
+    def __init__(self, **kwargs):
+        self.msg = None
 
         self.vendor = kwargs.pop("vendor", "example.org")
         self.library = kwargs.pop("library", "mylibrary")
@@ -38,6 +37,7 @@ class IPXACTExporter(RDLExporter):
 
     #---------------------------------------------------------------------------
     def export(self, node, path):
+        self.msg = node.env.msg
         self.reg_accesswidth = None
 
         # If it is the root node, skip to top addrmap
