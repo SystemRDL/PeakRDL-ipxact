@@ -74,7 +74,7 @@ class IPXACTExporter:
         # addressBlock groups
         explode = False
 
-        # If top node is an addrmap, and it contains 2 or more children that are
+        # If top node is an addrmap, and it contains 1 or more children that are
         # exclusively addrmap or mem, then it makes more sense to "explode" the
         # top-level node and make each of it's children their own addressBlock
         # (explode --> True)
@@ -94,7 +94,7 @@ class IPXACTExporter:
                 else:
                     non_addrblockable_children += 1
 
-            if (non_addrblockable_children == 0) and (addrblockable_children >= 2):
+            if (non_addrblockable_children == 0) and (addrblockable_children >= 1):
                 explode = True
 
         # Do the export!

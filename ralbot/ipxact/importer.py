@@ -33,6 +33,7 @@ class IPXACTImporter(RDLImporter):
 
         addressBlock_s = self.seek_to_top_addressBlocks(dom)
 
+        # Parse all the addressBlock elements found
         addrmap_or_mems = []
         for addressBlock in addressBlock_s:
             addrmap_or_mem = self.parse_addressBlock(addressBlock)
@@ -45,7 +46,12 @@ class IPXACTImporter(RDLImporter):
                 self.src_ref
             )
 
-        if len(addrmap_or_mems) == 1:
+        if (len(addrmap_or_mems) == 1) and (addrmap_or_mems[0].addr_offset == 0):
+            # OK to drop the hierarchy implied by the enclosing memoryMap
+            # since it is only a wrapper around a single addressBlock at base
+            # offset 0
+            # This addressBlock will be the top component that is registered
+            # in $root
             top_component = addrmap_or_mems[0]
 
             #  de-instantiate the addrmap
@@ -55,18 +61,38 @@ class IPXACTImporter(RDLImporter):
             top_component.original_def = None
             top_component.external = None
             top_component.inst_src_ref = None
+            top_component.addr_offset = None
 
         else:
-            # Multiple addrmap_or_mems were generated.
-            # Encapsulate them in a top-level parent
+            # memoryMap encloses multiple addressBlock components, or the single
+            # one uses a meaningful address offset.
+            # In order to preserve this information, encapsulate them in a
+            # top-level parent that is named after the memoryMap
 
-            # TODO:
-            # ++ Get the top-level memoryMap
-            # ++ create a addrmap component for it
-            top_component = None # TODO
-            # ++ Insert all the addrmap_or_mems as children
-            # ++ register it with the root namespace
-            raise NotImplementedError
+            # Get the top-level memoryMap's element values
+            d = self.flatten_element_values(addressBlock_s[0].parentNode)
+
+            # Check for required name
+            if 'name' not in d:
+                self.msg.fatal("memoryMap is missing required tag 'name'", self.src_ref)
+
+            # Create component instance to represent the memoryMap
+            C = comp.Addrmap()
+            C.def_src_ref = self.src_ref
+
+            # Collect properties and other values
+            C.type_name = d['name']
+
+            if 'displayName' in d:
+                self.assign_property(C, "name", d['displayName'], self.src_ref)
+
+            if 'description' in d:
+                self.assign_property(C, "desc", d['description'], self.src_ref)
+
+            # Insert all the addrmap_or_mems as children
+            C.children = addrmap_or_mems
+
+            top_component = C
 
         # register it with the root namespace
         self.register_root_component(top_component)
@@ -447,7 +473,7 @@ class IPXACTImporter(RDLImporter):
         for m in missing:
             self.msg.fatal("field is missing required tag '%s'" % m, self.src_ref)
 
-        # Discard any reserved fields
+        # Discard field if it is reserved
         if d.get('reserved', False):
             return None
 

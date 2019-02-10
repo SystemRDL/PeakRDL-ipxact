@@ -4,10 +4,8 @@ import filecmp
 
 class TestImportExport(IPXACTTestCase):
     
-    def test_symmetry(self):
-        root = self.compile(
-            ["test_sources/accelera-generic_example.rdl"]
-        )
+    def symmetry_check(self, sources):
+        root = self.compile(sources)
 
         with self.subTest("export 1"):
             self.export(root, "tmp.xml")
@@ -28,3 +26,12 @@ class TestImportExport(IPXACTTestCase):
 
         with self.subTest("symmetry check"):
             self.compare("tmp.xml", "tmp2.xml")
+
+    def test_generic_example(self):
+        self.symmetry_check(["test_sources/accelera-generic_example.rdl"])
+
+    def test_nested(self):
+        self.symmetry_check([
+            "test_sources/accelera-generic_example.rdl",
+            "test_sources/nested.rdl"
+        ])
