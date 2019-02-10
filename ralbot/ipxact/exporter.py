@@ -1,9 +1,11 @@
 import enum
 
 from xml.dom.minidom import getDOMImplementation
-from systemrdl.node import RootNode, RegNode
-from systemrdl.node import AddrmapNode, RegfileNode, MemNode
-from systemrdl import rdltypes
+from systemrdl.node import AddressableNode, RootNode
+from systemrdl.node import AddrmapNode, MemNode
+from systemrdl.node import RegNode, RegfileNode
+
+from . import typemaps
 
 class Standard(enum.IntEnum):
     SPIRIT_1_0 = 1.0
@@ -26,7 +28,7 @@ class IPXACTExporter:
         self.xml_indent = kwargs.pop("xml_indent", "  ")
         self.xml_newline = kwargs.pop("xml_newline", "\n")
         self.doc = None
-        self.reg_accesswidth = None
+        self._max_width = None
 
         # Check for stray kwargs
         if kwargs:
@@ -38,14 +40,13 @@ class IPXACTExporter:
     #---------------------------------------------------------------------------
     def export(self, node, path):
         self.msg = node.env.msg
-        self.reg_accesswidth = None
 
         # If it is the root node, skip to top addrmap
         if isinstance(node, RootNode):
             node = node.top
 
-        if not isinstance(node, AddrmapNode):
-            raise TypeError("'node' argument expects type AddrmapNode. Got '%s'" % type(node).__name__)
+        if not isinstance(node, (AddrmapNode, MemNode)):
+            raise TypeError("'node' argument expects type AddrmapNode or MemNode. Got '%s'" % type(node).__name__)
 
         # Initialize XML DOM
         self.doc = getDOMImplementation().createDocument(None, None, None)
@@ -63,17 +64,68 @@ class IPXACTExporter:
         # versionedIdentifier Block
         self.add_value(comp, "ipxact:vendor", self.vendor)
         self.add_value(comp, "ipxact:library", self.library)
-        self.add_value(comp, "ipxact:name", node.inst.inst_name)
+        self.add_value(comp, "ipxact:name", node.inst_name)
         self.add_value(comp, "ipxact:version", self.version)
 
         mmaps = self.doc.createElement("ipxact:memoryMaps")
         comp.appendChild(mmaps)
-        mmap = self.doc.createElement("ipxact:memoryMap")
-        self.add_nameGroup(mmap, "%s_mmap" % node.inst.inst_name)
-        mmaps.appendChild(mmap)
 
-        self.add_addressBlock(mmap, node)
+        # Determine if top-level node should be exploded across multiple
+        # addressBlock groups
+        explode = False
 
+        # If top node is an addrmap, and it contains 2 or more children that are
+        # exclusively addrmap or mem, then it makes more sense to "explode" the
+        # top-level node and make each of it's children their own addressBlock
+        # (explode --> True)
+        #
+        # Otherwise, do not "explode" the top-level node
+        # (explode --> False)
+        if isinstance(node, AddrmapNode):
+            addrblockable_children = 0
+            non_addrblockable_children = 0
+
+            for child in node.children(skip_not_present=False):
+                if not isinstance(child, AddressableNode):
+                    continue
+
+                if isinstance(child, (AddrmapNode, MemNode)):
+                    addrblockable_children += 1
+                else:
+                    non_addrblockable_children += 1
+
+            if (non_addrblockable_children == 0) and (addrblockable_children >= 2):
+                explode = True
+
+        # Do the export!
+        if explode:
+            # top-node becomes the memoryMap
+            mmap = self.doc.createElement("ipxact:memoryMap")
+            self.add_nameGroup(mmap,
+                node.inst_name,
+                node.get_property("name", default=None),
+                node.get_property("desc")
+            )
+            mmaps.appendChild(mmap)
+
+            # Top-node's children become their own addressBlocks
+            for child in node.children(skip_not_present=False):
+                if not isinstance(child, AddressableNode):
+                    continue
+
+                self.add_addressBlock(mmap, child)
+        else:
+            # Not exploding apart the top-level node
+
+            # Wrap it in a dummy memoryMap that bears it's name
+            mmap = self.doc.createElement("ipxact:memoryMap")
+            self.add_nameGroup(mmap, "%s_mmap" % node.inst_name)
+            mmaps.appendChild(mmap)
+
+            # Export top-level node as a single addressBlock
+            self.add_addressBlock(mmap, node)
+
+        # Write out XML dom
         with open(path, "w") as f:
             self.doc.writexml(
                 f,
@@ -99,11 +151,13 @@ class IPXACTExporter:
 
     #---------------------------------------------------------------------------
     def add_addressBlock(self, parent, node):
+        self._max_width = None
+
         addressBlock = self.doc.createElement("ipxact:addressBlock")
         parent.appendChild(addressBlock)
 
         self.add_nameGroup(addressBlock,
-            node.inst.inst_name,
+            node.inst_name,
             node.get_property("name", default=None),
             node.get_property("desc")
         )
@@ -125,7 +179,11 @@ class IPXACTExporter:
         width_el = self.doc.createElement("ipxact:width")
         addressBlock.appendChild(width_el)
 
-        # DNE: <ipxact:usage>
+        if isinstance(node, MemNode):
+            self.add_value(addressBlock, "ipxact:usage", "memory")
+            access = typemaps.access_from_sw(node.get_property("sw"))
+            self.add_value(addressBlock, "ipxact:access", access)
+
         # DNE: <ipxact:volatile>
         # DNE: <ipxact:access>
         # DNE: <ipxact:parameters>
@@ -133,12 +191,22 @@ class IPXACTExporter:
         for child in node.children(skip_not_present=False):
             if isinstance(child, RegNode):
                 self.add_register(addressBlock, child)
-            if isinstance(child, (AddrmapNode, RegfileNode, MemNode)):
+            elif isinstance(child, (AddrmapNode, RegfileNode)):
                 self.add_registerFile(addressBlock, child)
+            elif isinstance(child, MemNode):
+                self.msg.warning(
+                    "IP-XACT does not support 'mem' nodes that are nested in hierarchy. Discarding '%s'"
+                    % child.get_path(),
+                    child.inst.inst_src_ref
+                )
 
-        # Width is now known!
-        if self.reg_accesswidth is not None:
-            width_el.appendChild(self.doc.createTextNode("%d" % self.reg_accesswidth))
+        # Width should be known by now
+        # If mem, and width isn't known, check memwidth
+        if isinstance(node, MemNode) and (self._max_width is None):
+            self._max_width = node.get_property("memwidth")
+
+        if self._max_width is not None:
+            width_el.appendChild(self.doc.createTextNode("%d" % self._max_width))
         else:
             width_el.appendChild(self.doc.createTextNode("32"))
 
@@ -153,7 +221,7 @@ class IPXACTExporter:
         parent.appendChild(registerFile)
 
         self.add_nameGroup(registerFile,
-            node.inst.inst_name,
+            node.inst_name,
             node.get_property("name", default=None),
             node.get_property("desc")
         )
@@ -161,26 +229,32 @@ class IPXACTExporter:
         if not node.get_property("ispresent"):
             self.add_value(registerFile, "ipxact:isPresent", "0")
 
-        if node.inst.is_array:
-            for dim in node.inst.array_dimensions:
+        if node.is_array:
+            for dim in node.array_dimensions:
                 self.add_value(registerFile, "ipxact:dim", "%d" % dim)
 
-        self.add_value(registerFile, "ipxact:addressOffset", "'h%x" % node.inst.addr_offset)
+        self.add_value(registerFile, "ipxact:addressOffset", "'h%x" % node.raw_address_offset)
 
         # DNE: <ipxact:typeIdentifier>
 
-        if node.inst.is_array:
+        if node.is_array:
             # For arrays, ipxact:range also defines the increment between indexes
             # Must use stride instead
-            self.add_value(registerFile, "ipxact:range", "'h%x" % node.inst.array_stride)
+            self.add_value(registerFile, "ipxact:range", "'h%x" % node.array_stride)
         else:
             self.add_value(registerFile, "ipxact:range", "'h%x" % node.size)
 
         for child in node.children(skip_not_present=False):
             if isinstance(child, RegNode):
                 self.add_register(registerFile, child)
-            if isinstance(child, (AddrmapNode, RegfileNode, MemNode)):
+            elif isinstance(child, (AddrmapNode, RegfileNode)):
                 self.add_registerFile(registerFile, child)
+            elif isinstance(child, MemNode):
+                self.msg.warning(
+                    "IP-XACT does not support 'mem' nodes that are nested in hierarchy. Discarding '%s'"
+                    % child.get_path(),
+                    child.inst.inst_src_ref
+                )
 
         # DNE: <ipxact:parameters>
 
@@ -195,7 +269,7 @@ class IPXACTExporter:
         parent.appendChild(register)
 
         self.add_nameGroup(register,
-            node.inst.inst_name,
+            node.inst_name,
             node.get_property("name", default=None),
             node.get_property("desc")
         )
@@ -203,27 +277,25 @@ class IPXACTExporter:
         if not node.get_property("ispresent"):
             self.add_value(register, "ipxact:isPresent", "0")
 
-        if node.inst.is_array:
-            if node.inst.array_stride != (node.get_property("regwidth") / 8):
+        if node.is_array:
+            if node.array_stride != (node.get_property("regwidth") / 8):
                 self.msg.fatal(
                     "IP-XACT does not support register arrays whose stride is larger then the register's size",
                     node.inst.inst_src_ref
                 )
-            for dim in node.inst.array_dimensions:
+            for dim in node.array_dimensions:
                 self.add_value(register, "ipxact:dim", "%d" % dim)
 
-        self.add_value(register, "ipxact:addressOffset", "'h%x" % node.inst.addr_offset)
+        self.add_value(register, "ipxact:addressOffset", "'h%x" % node.raw_address_offset)
 
         # DNE: <ipxact:typeIdentifier>
 
         self.add_value(register, "ipxact:size", "%d" % node.get_property("regwidth"))
 
-        if self.reg_accesswidth is None:
-            self.reg_accesswidth = node.get_property("accesswidth")
+        if self._max_width is None:
+            self._max_width = max(node.get_property("accesswidth"), node.get_property("regwidth"))
         else:
-            if node.get_property("accesswidth") != self.reg_accesswidth:
-                # ipxact only supports a constant block register width
-                raise ValueError("Block contains more than one accesswidth of registers. Unable to export")
+            self._max_width = max(node.get_property("accesswidth"), node.get_property("regwidth"), self._max_width)
 
         # DNE: <ipxact:volatile>
         # DNE: <ipxact:access>
@@ -245,7 +317,7 @@ class IPXACTExporter:
         parent.appendChild(field)
 
         self.add_nameGroup(field,
-            node.inst.inst_name,
+            node.inst_name,
             node.get_property("name", default=None),
             node.get_property("desc")
         )
@@ -253,7 +325,7 @@ class IPXACTExporter:
         if not node.get_property("ispresent"):
             self.add_value(field, "ipxact:isPresent", "0")
 
-        self.add_value(field, "ipxact:bitOffset", "%d" % node.inst.low)
+        self.add_value(field, "ipxact:bitOffset", "%d" % node.low)
 
         reset = node.get_property("reset")
         if reset is not None:
@@ -265,22 +337,17 @@ class IPXACTExporter:
 
         # DNE: <ipxact:typeIdentifier>
 
-        self.add_value(field, "ipxact:bitWidth", "%d" % node.inst.width)
+        self.add_value(field, "ipxact:bitWidth", "%d" % node.width)
 
         if node.is_volatile:
             self.add_value(field, "ipxact:volatile", "true")
 
         sw = node.get_property("sw")
-        if sw == rdltypes.AccessType.r:
-            self.add_value(field, "ipxact:access", "read-only")
-        elif sw == rdltypes.AccessType.rw:
-            self.add_value(field, "ipxact:access", "read-write")
-        elif sw == rdltypes.AccessType.rw1:
-            self.add_value(field, "ipxact:access", "read-writeOnce")
-        elif sw == rdltypes.AccessType.w:
-            self.add_value(field, "ipxact:access", "write-only")
-        elif sw == rdltypes.AccessType.w1:
-            self.add_value(field, "ipxact:access", "writeOnce")
+        self.add_value(
+            field,
+            "ipxact:access",
+            typemaps.access_from_sw(sw)
+        )
 
         encode = node.get_property("encode")
         if encode is not None:
@@ -298,34 +365,22 @@ class IPXACTExporter:
                 # DNE <ipxact:vendorExtensions>
 
         onwrite = node.get_property("onwrite")
-        if onwrite == rdltypes.OnWriteType.wclr:
-            self.add_value(field, "ipxact:modifiedWriteValue", "clear")
-        elif onwrite == rdltypes.OnWriteType.woclr:
-            self.add_value(field, "ipxact:modifiedWriteValue", "oneToClear")
-        elif onwrite == rdltypes.OnWriteType.woset:
-            self.add_value(field, "ipxact:modifiedWriteValue", "oneToSet")
-        elif onwrite == rdltypes.OnWriteType.wot:
-            self.add_value(field, "ipxact:modifiedWriteValue", "oneToToggle")
-        elif onwrite == rdltypes.OnWriteType.wset:
-            self.add_value(field, "ipxact:modifiedWriteValue", "set")
-        elif onwrite == rdltypes.OnWriteType.wuser:
-            self.add_value(field, "ipxact:modifiedWriteValue", "modify")
-        elif onwrite == rdltypes.OnWriteType.wzc:
-            self.add_value(field, "ipxact:modifiedWriteValue", "zeroToClear")
-        elif onwrite == rdltypes.OnWriteType.wzs:
-            self.add_value(field, "ipxact:modifiedWriteValue", "zeroToSet")
-        elif onwrite == rdltypes.OnWriteType.wzt:
-            self.add_value(field, "ipxact:modifiedWriteValue", "zeroToToggle")
+        if onwrite:
+            self.add_value(
+                field,
+                "ipxact:modifiedWriteValue",
+                typemaps.mwv_from_onwrite(onwrite)
+            )
 
         # DNE: <ipxact:writeValueConstraint>
 
         onread = node.get_property("onread")
-        if onread == rdltypes.OnReadType.rclr:
-            self.add_value(field, "ipxact:readAction", "clear")
-        elif onread == rdltypes.OnReadType.rset:
-            self.add_value(field, "ipxact:readAction", "set")
-        elif onread == rdltypes.OnReadType.ruser:
-            self.add_value(field, "ipxact:readAction", "modify")
+        if onread:
+            self.add_value(
+                field,
+                "ipxact:readAction",
+                typemaps.readaction_from_onread(onread)
+            )
 
         if node.get_property("donttest"):
             self.add_value(field, "ipxact:testable", "false")

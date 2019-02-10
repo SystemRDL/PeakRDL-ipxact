@@ -5,6 +5,9 @@ set -e
 this_dir="$( cd "$(dirname "$0")" ; pwd -P )"
 cd $this_dir/../
 
+# Make sure IP-XACT schema have been downloaded
+$this_dir/schema/download_schema.sh
+
 # Run unit tests while collecting coverage
 coverage3 run $this_dir/../setup.py test
 coverage3 html -d $this_dir/htmlcov

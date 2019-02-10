@@ -8,6 +8,7 @@ from systemrdl import rdltypes
 from systemrdl.messages import SourceRef
 from systemrdl import component as comp
 
+from . import typemaps
 
 class IPXACTImporter(RDLImporter):
 
@@ -618,21 +619,14 @@ class IPXACTImporter(RDLImporter):
 
             elif child.localName == "access":
                 s = get_text(child)
-                if s == "read-write":
-                    d['access'] = rdltypes.AccessType.rw
-                elif s == "read-only":
-                    d['access'] = rdltypes.AccessType.r
-                elif s == "write-only":
-                    d['access'] = rdltypes.AccessType.w
-                elif s == "read-writeOnce":
-                    d['access'] = rdltypes.AccessType.rw1
-                elif s == "writeOnce":
-                    d['access'] = rdltypes.AccessType.w1
-                else:
+                sw = typemaps.sw_from_access(s)
+                if sw is None:
                     self.msg.error(
                         "Invalid value '%s' found in <%s>" % (s, child.tagName),
                         self.src_ref
                     )
+                else:
+                    d['access'] = sw
 
             elif child.localName == "dim":
                 # Accumulate array dimensions
@@ -644,43 +638,25 @@ class IPXACTImporter(RDLImporter):
 
             elif child.localName == "readAction":
                 s = get_text(child)
-                if s == "clear":
-                    d['readAction'] = rdltypes.OnReadType.rclr
-                elif s == "set":
-                    d['readAction'] = rdltypes.OnReadType.rset
-                elif s == "modify":
-                    d['readAction'] = rdltypes.OnReadType.ruser
-                else:
+                onread = typemaps.onread_from_readaction(s)
+                if onread is None:
                     self.msg.error(
                         "Invalid value '%s' found in <%s>" % (s, child.tagName),
                         self.src_ref
                     )
+                else:
+                    d['readAction'] = onread
 
             elif child.localName == "modifiedWriteValue":
                 s = get_text(child)
-                if s == "clear":
-                    d['modifiedWriteValue'] = rdltypes.OnWriteType.wclr
-                elif s == "oneToClear":
-                    d['modifiedWriteValue'] = rdltypes.OnWriteType.woclr
-                elif s == "oneToSet":
-                    d['modifiedWriteValue'] = rdltypes.OnWriteType.woset
-                elif s == "oneToToggle":
-                    d['modifiedWriteValue'] = rdltypes.OnWriteType.wot
-                elif s == "set":
-                    d['modifiedWriteValue'] = rdltypes.OnWriteType.wset
-                elif s == "modify":
-                    d['modifiedWriteValue'] = rdltypes.OnWriteType.wuser
-                elif s == "zeroToClear":
-                    d['modifiedWriteValue'] = rdltypes.OnWriteType.wzc
-                elif s == "zeroToSet":
-                    d['modifiedWriteValue'] = rdltypes.OnWriteType.wzs
-                elif s == "zeroToToggle":
-                    d['modifiedWriteValue'] = rdltypes.OnWriteType.wzt
-                else:
+                onwrite = typemaps.onwrite_from_mwv(s)
+                if onwrite is None:
                     self.msg.error(
                         "Invalid value '%s' found in <%s>" % (s, child.tagName),
                         self.src_ref
                     )
+                else:
+                    d['modifiedWriteValue'] = onwrite
 
             elif child.localName == "enumeratedValues":
                 # Deal with this later
