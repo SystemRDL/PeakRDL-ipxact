@@ -1,7 +1,6 @@
 
 import unittest
 import subprocess
-import os
 import logging
 import filecmp
 
@@ -21,7 +20,6 @@ class TestPrinter(MessagePrinter):
 class IPXACTTestCase(unittest.TestCase):
 
     def compile(self, files, top_name=None):
-        this_dir = os.path.dirname(os.path.realpath(__file__))
         rdlc = RDLCompiler(
             message_printer=TestPrinter()
         )
@@ -29,29 +27,26 @@ class IPXACTTestCase(unittest.TestCase):
 
         for file in files:
             if file.endswith(".rdl"):
-                rdlc.compile_file(os.path.join(this_dir, file))
+                rdlc.compile_file(file)
             elif file.endswith(".xml"):
-                ipxact.import_file(os.path.join(this_dir, file))
+                ipxact.import_file(file)
         return rdlc.elaborate(top_name)
     
     def export(self, node, file):
-        this_dir = os.path.dirname(os.path.realpath(__file__))
         ipxact = IPXACTExporter()
-        ipxact.export(node, os.path.join(this_dir, file))
+        ipxact.export(node, file)
 
     def compare(self, file1, file2):
-        this_dir = os.path.dirname(os.path.realpath(__file__))
 
         self.assertTrue(filecmp.cmp(
-            os.path.join(this_dir, file1),
-            os.path.join(this_dir, file2)
+            file1,
+            file2
         ), 'file compare failed')
     
     def validate_xsd(self, file, xsd):
-        this_dir = os.path.dirname(os.path.realpath(__file__))
 
-        file = os.path.join(this_dir, file)
-        xsd = os.path.join(this_dir, xsd)
+        file = file
+        xsd = xsd
         cmd = ["xmllint", "--noout", "--schema", xsd, file]
 
         passed = True
