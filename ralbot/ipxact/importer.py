@@ -1,6 +1,7 @@
 
 import re
 
+from collections import OrderedDict
 from xml.dom import minidom
 
 from systemrdl import RDLCompiler, RDLImporter
@@ -695,7 +696,7 @@ class IPXACTImporter(RDLImporter):
         """
         Parses an enumeration listing and returns the user-defined enum type
         """
-        entries = {}
+        entries = OrderedDict()
         for enumeratedValue in self.iterelements(enumeratedValues):
             if enumeratedValue.localName != "enumeratedValue":
                 continue
