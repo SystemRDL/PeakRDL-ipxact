@@ -264,9 +264,13 @@ class IPXACTImporter(RDLImporter):
         # collect children
         for child_el in d['child_els']:
             if child_el.localName == "register":
-                C.children.append(self.parse_register(child_el))
+                R = self.parse_register(child_el)
+                if R:
+                    C.children.append(R)
             elif child_el.localName == "registerFile" and not is_memory:
-                C.children.append(self.parse_registerFile(child_el))
+                R = self.parse_registerFile(child_el)
+                if R:
+                    C.children.append(R)
             else:
                 self.msg.error(
                     "Invalid child element <%s> found in <%s:addressBlock>"
@@ -339,15 +343,28 @@ class IPXACTImporter(RDLImporter):
         # collect children
         for child_el in d['child_els']:
             if child_el.localName == "register":
-                C.children.append(self.parse_register(child_el))
+                R = self.parse_register(child_el)
+                if R:
+                    C.children.append(R)
             elif child_el.localName == "registerFile":
-                C.children.append(self.parse_registerFile(child_el))
+                R = self.parse_registerFile(child_el)
+                if R:
+                    C.children.append(R)
             else:
                 self.msg.error(
                     "Invalid child element <%s> found in <%s:registerFile>"
                     % (child_el.tagName, self.ns),
                     self.src_ref
                 )
+
+        if not C.children:
+            # Register File contains no fields! RDL does not allow this. Discard
+            self.msg.warning(
+                "Discarding registerFile '%s' because it does not contain any children"
+                % (C.inst_name),
+                self.src_ref
+            )
+            return None
 
         return C
 
@@ -429,6 +446,15 @@ class IPXACTImporter(RDLImporter):
                     % (child_el.tagName, self.ns),
                     self.src_ref
                 )
+
+        if not C.children:
+            # Register contains no fields! RDL does not allow this. Discard
+            self.msg.warning(
+                "Discarding register '%s' because it does not contain any fields"
+                % (C.inst_name),
+                self.src_ref
+            )
+            return None
 
         return C
 
