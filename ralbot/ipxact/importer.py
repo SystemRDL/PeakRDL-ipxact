@@ -282,6 +282,9 @@ class IPXACTImporter(RDLImporter):
             # If a register addressBlock has no children, skip it
             return None
 
+        if 'vendorExtensions' in d:
+            return self.addressBlock_vendorExtensions(d['vendorExtensions'], C)
+
         return C
 
     #---------------------------------------------------------------------------
@@ -365,6 +368,9 @@ class IPXACTImporter(RDLImporter):
                 self.src_ref
             )
             return None
+
+        if 'vendorExtensions' in d:
+            return self.registerFile_vendorExtensions(d['vendorExtensions'], C)
 
         return C
 
@@ -455,6 +461,9 @@ class IPXACTImporter(RDLImporter):
                 self.src_ref
             )
             return None
+
+        if 'vendorExtensions' in d:
+            return self.register_vendorExtensions(d['vendorExtensions'], C)
 
         return C
 
@@ -552,6 +561,9 @@ class IPXACTImporter(RDLImporter):
         if 'enum_el' in d:
             enum_type = self.parse_enumeratedValues(d['enum_el'], C.inst_name + "_enum_t")
             self.assign_property(C, "encode", enum_type, self.src_ref)
+
+        if 'vendorExtensions' in d:
+            return self.field_vendorExtensions(d['vendorExtensions'], C)
 
         return C
 
@@ -715,6 +727,10 @@ class IPXACTImporter(RDLImporter):
                 # Deal with this later
                 d['enum_el'] = child
 
+            elif child.localName == "vendorExtensions":
+                # Deal with this later
+                d['vendorExtensions'] = child
+
         return d
 
     #---------------------------------------------------------------------------
@@ -793,6 +809,23 @@ class IPXACTImporter(RDLImporter):
         bit_units = au * self._addressUnitBits
         byte_units = bit_units // 8
         return byte_units
+
+    #---------------------------------------------------------------------------
+    def addressBlock_vendorExtensions(self, vendorExtensions:minidom.Element, component:comp.Component):
+        #pylint: disable=unused-argument
+        return component
+
+    def registerFile_vendorExtensions(self, vendorExtensions:minidom.Element, component:comp.Component):
+        #pylint: disable=unused-argument
+        return component
+
+    def register_vendorExtensions(self, vendorExtensions:minidom.Element, component:comp.Component):
+        #pylint: disable=unused-argument
+        return component
+
+    def field_vendorExtensions(self, vendorExtensions:minidom.Element, component:comp.Component):
+        #pylint: disable=unused-argument
+        return component
 
 #===============================================================================
 def get_text(el):
