@@ -17,7 +17,7 @@ Install from [PyPi](https://pypi.org/project/ralbot-ipxact) using pip:
 
 ## Exporter Usage
 Pass the elaborated output of the [SystemRDL Compiler](http://systemrdl-compiler.readthedocs.io)
-into the exporter.
+to the exporter.
 
 ```python
 from ralbot.ipxact import RDLCompiler, IPXACTExporter
@@ -36,10 +36,10 @@ exporter.export(root, "path/to/output.xml")
 ```
 
 ## Importer Usage
-Importing an IP_XACT file will load the register description into the SystemRDL
-register model as if it was an `addrmap` component declaration.
-Once imported, the IP-XACT contents can be used as-is, or referenced from another
-RDL file.
+When an IP-XACT file is imported, the register description is loaded into the
+SystemRDL register model as if it was an `addrmap` component declaration.
+Once imported, the IP-XACT contents can be used as-is, or referenced from
+another RDL file.
 
 Import can occur at any point alongside normal RDL file compilation.
 
