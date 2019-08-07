@@ -74,8 +74,11 @@ class IPXACTExporter:
         # addressBlock groups
         explode = False
 
-        # If top node is an addrmap, and it contains 1 or more children that are
-        # exclusively addrmap or mem, then it makes more sense to "explode" the
+        # If top node is an addrmap, and it contains 1 or more children that
+        # are:
+        # - exclusively addrmap or mem
+        # - and None of them are arrays
+        # ... then it makes more sense to "explode" the
         # top-level node and make each of it's children their own addressBlock
         # (explode --> True)
         #
@@ -89,7 +92,7 @@ class IPXACTExporter:
                 if not isinstance(child, AddressableNode):
                     continue
 
-                if isinstance(child, (AddrmapNode, MemNode)):
+                if isinstance(child, (AddrmapNode, MemNode)) and not child.is_array:
                     addrblockable_children += 1
                 else:
                     non_addrblockable_children += 1

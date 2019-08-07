@@ -20,7 +20,9 @@ Pass the elaborated output of the [SystemRDL Compiler](http://systemrdl-compiler
 to the exporter.
 
 ```python
-from ralbot.ipxact import RDLCompiler, IPXACTExporter
+import sys
+from systemrdl import RDLCompiler, RDLCompileError
+from ralbot.ipxact import IPXACTExporter
 
 rdlc = RDLCompiler()
 
