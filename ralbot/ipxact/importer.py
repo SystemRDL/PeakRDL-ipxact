@@ -278,12 +278,12 @@ class IPXACTImporter(RDLImporter):
                     self.src_ref
                 )
 
+        if 'vendorExtensions' in d:
+            C = self.addressBlock_vendorExtensions(d['vendorExtensions'], C)
+
         if not is_memory and not C.children:
             # If a register addressBlock has no children, skip it
             return None
-
-        if 'vendorExtensions' in d:
-            return self.addressBlock_vendorExtensions(d['vendorExtensions'], C)
 
         return C
 
@@ -360,6 +360,9 @@ class IPXACTImporter(RDLImporter):
                     self.src_ref
                 )
 
+        if 'vendorExtensions' in d:
+            C = self.registerFile_vendorExtensions(d['vendorExtensions'], C)
+
         if not C.children:
             # Register File contains no fields! RDL does not allow this. Discard
             self.msg.warning(
@@ -368,9 +371,6 @@ class IPXACTImporter(RDLImporter):
                 self.src_ref
             )
             return None
-
-        if 'vendorExtensions' in d:
-            return self.registerFile_vendorExtensions(d['vendorExtensions'], C)
 
         return C
 
@@ -453,6 +453,9 @@ class IPXACTImporter(RDLImporter):
                     self.src_ref
                 )
 
+        if 'vendorExtensions' in d:
+            C = self.register_vendorExtensions(d['vendorExtensions'], C)
+
         if not C.children:
             # Register contains no fields! RDL does not allow this. Discard
             self.msg.warning(
@@ -461,9 +464,6 @@ class IPXACTImporter(RDLImporter):
                 self.src_ref
             )
             return None
-
-        if 'vendorExtensions' in d:
-            return self.register_vendorExtensions(d['vendorExtensions'], C)
 
         return C
 
@@ -563,7 +563,7 @@ class IPXACTImporter(RDLImporter):
             self.assign_property(C, "encode", enum_type, self.src_ref)
 
         if 'vendorExtensions' in d:
-            return self.field_vendorExtensions(d['vendorExtensions'], C)
+            C = self.field_vendorExtensions(d['vendorExtensions'], C)
 
         return C
 
