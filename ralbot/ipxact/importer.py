@@ -59,7 +59,6 @@ class IPXACTImporter(RDLImporter):
             top_component.type_name = top_component.inst_name
             top_component.is_instance = False
             top_component.inst_name = None
-            top_component.original_def = None
             top_component.external = None
             top_component.inst_src_ref = None
             top_component.addr_offset = None
@@ -80,6 +79,7 @@ class IPXACTImporter(RDLImporter):
             # Create component instance to represent the memoryMap
             C = comp.Addrmap()
             C.def_src_ref = self.src_ref
+            C.original_def = C
 
             # Collect properties and other values
             C.type_name = d['name']
@@ -229,9 +229,12 @@ class IPXACTImporter(RDLImporter):
         C.def_src_ref = self.src_ref
         C.is_instance = True
         C.inst_src_ref = self.src_ref
+        C.original_def = C
 
         # Collect properties and other values
         C.inst_name = d['name']
+        C.type_name = d['name']
+
 
         if 'displayName' in d:
             self.assign_property(C, "name", d['displayName'], self.src_ref)
@@ -323,9 +326,11 @@ class IPXACTImporter(RDLImporter):
         C.def_src_ref = self.src_ref
         C.is_instance = True
         C.inst_src_ref = self.src_ref
+        C.original_def = C
 
         # Collect properties and other values
         C.inst_name = d['name']
+        C.type_name = d['name']
 
         if 'displayName' in d:
             self.assign_property(C, "name", d['displayName'], self.src_ref)
@@ -415,9 +420,11 @@ class IPXACTImporter(RDLImporter):
         C.def_src_ref = self.src_ref
         C.is_instance = True
         C.inst_src_ref = self.src_ref
+        C.original_def = C
 
         # Collect properties and other values
         C.inst_name = d['name']
+        C.type_name = d['name']
         C.addr_offset = self.AU_to_bytes(d['addressOffset'])
 
         if 'displayName' in d:
@@ -518,9 +525,11 @@ class IPXACTImporter(RDLImporter):
         C.def_src_ref = self.src_ref
         C.is_instance = True
         C.inst_src_ref = self.src_ref
+        C.original_def = C
 
         # Collect properties and other values
         C.inst_name = d['name']
+        C.type_name = d['name']
 
         if 'displayName' in d:
             self.assign_property(C, "name", d['displayName'], self.src_ref)
