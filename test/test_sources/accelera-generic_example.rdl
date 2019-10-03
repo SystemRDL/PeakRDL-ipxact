@@ -184,7 +184,7 @@ addrmap some_register_map {
   spi4_pkt_count_reg spi4_pkt_count      @0x0020;
   gige_pkt_count_reg gige_pkt_count_reg;
 
-  fifoRfile          fifo_port[8]        @0x100 += 0x4;     // Create 8 Instances of Fifo Reg File Starting at Address=0x100
+  fifoRfile          fifo_port[8]        @0x100 += 0x10;     // Create 8 Instances of Fifo Reg File Starting at Address=0x100
   vc_pkt_count_reg   vc_pkt_count[16]   @0x1000 +=0x4;
 
 };                                                         // End some_register_map
