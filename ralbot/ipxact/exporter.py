@@ -34,8 +34,13 @@ class IPXACTExporter:
         if kwargs:
             raise TypeError("got an unexpected keyword argument '%s'" % list(kwargs.keys())[0])
 
-        if self.standard != Standard.IEEE_1685_2014:
-            raise ValueError("Other IP-XACT standards are not supported yet")
+        if self.standard < Standard.IEEE_1685_2009:
+            raise ValueError("Older SPIRIT standards are not supported yet")
+
+        if self.standard >= Standard.IEEE_1685_2014:
+            self.ns = "ipxact:"
+        else:
+            self.ns = "spirit:"
 
     #---------------------------------------------------------------------------
     def export(self, node, path):
@@ -55,19 +60,27 @@ class IPXACTExporter:
         self.doc.appendChild(tmp)
 
         # Create top-level component
-        comp = self.doc.createElement("ipxact:component")
-        comp.setAttribute("xmlns:ipxact", "http://www.accellera.org/XMLSchema/IPXACT/1685-2014")
-        comp.setAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
-        comp.setAttribute("xsi:schemaLocation", "http://www.accellera.org/XMLSchema/IPXACT/1685-2014 http://www.accellera.org/XMLSchema/IPXACT/1685-2014/index.xsd")
+        comp = self.doc.createElement(self.ns + "component")
+        if self.standard == Standard.IEEE_1685_2014:
+            comp.setAttribute("xmlns:ipxact", "http://www.accellera.org/XMLSchema/IPXACT/1685-2014")
+            comp.setAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+            comp.setAttribute("xsi:schemaLocation", "http://www.accellera.org/XMLSchema/IPXACT/1685-2014 http://www.accellera.org/XMLSchema/IPXACT/1685-2014/index.xsd")
+        elif self.standard == Standard.IEEE_1685_2009:
+            comp.setAttribute("xmlns:spirit", "http://www.spiritconsortium.org/XMLSchema/SPIRIT/1685-2009")
+            comp.setAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+            comp.setAttribute("xsi:schemaLocation", "http://www.spiritconsortium.org/XMLSchema/SPIRIT/1685-2009 http://www.spiritconsortium.org/XMLSchema/SPIRIT/1685-2009/index.xsd")
+
+        else:
+            raise RuntimeError
         self.doc.appendChild(comp)
 
         # versionedIdentifier Block
-        self.add_value(comp, "ipxact:vendor", self.vendor)
-        self.add_value(comp, "ipxact:library", self.library)
-        self.add_value(comp, "ipxact:name", node.inst_name)
-        self.add_value(comp, "ipxact:version", self.version)
+        self.add_value(comp, self.ns + "vendor", self.vendor)
+        self.add_value(comp, self.ns + "library", self.library)
+        self.add_value(comp, self.ns + "name", node.inst_name)
+        self.add_value(comp, self.ns + "version", self.version)
 
-        mmaps = self.doc.createElement("ipxact:memoryMaps")
+        mmaps = self.doc.createElement(self.ns + "memoryMaps")
         comp.appendChild(mmaps)
 
         # Determine if top-level node should be exploded across multiple
@@ -103,7 +116,7 @@ class IPXACTExporter:
         # Do the export!
         if explode:
             # top-node becomes the memoryMap
-            mmap = self.doc.createElement("ipxact:memoryMap")
+            mmap = self.doc.createElement(self.ns + "memoryMap")
             self.add_nameGroup(mmap,
                 node.inst_name,
                 node.get_property("name", default=None),
@@ -121,7 +134,7 @@ class IPXACTExporter:
             # Not exploding apart the top-level node
 
             # Wrap it in a dummy memoryMap that bears it's name
-            mmap = self.doc.createElement("ipxact:memoryMap")
+            mmap = self.doc.createElement(self.ns + "memoryMap")
             self.add_nameGroup(mmap, "%s_mmap" % node.inst_name)
             mmaps.appendChild(mmap)
 
@@ -146,62 +159,102 @@ class IPXACTExporter:
 
     #---------------------------------------------------------------------------
     def add_nameGroup(self, parent, name, displayName=None, description=None):
-        self.add_value(parent, "ipxact:name", name)
+        self.add_value(parent, self.ns + "name", name)
         if displayName is not None:
-            self.add_value(parent, "ipxact:displayName", displayName)
+            self.add_value(parent, self.ns + "displayName", displayName)
         if description is not None:
-            self.add_value(parent, "ipxact:description", description)
+            self.add_value(parent, self.ns + "description", description)
+
+    #---------------------------------------------------------------------------
+    def add_registerData(self, parent, node):
+        if self.standard == Standard.IEEE_1685_2014:
+            # registers and registerFiles can be interleaved
+            for child in node.children(skip_not_present=False):
+                if isinstance(child, RegNode):
+                    self.add_register(parent, child)
+                elif isinstance(child, (AddrmapNode, RegfileNode)):
+                    self.add_registerFile(parent, child)
+                elif isinstance(child, MemNode):
+                    self.msg.warning(
+                        "IP-XACT does not support 'mem' nodes that are nested in hierarchy. Discarding '%s'"
+                        % child.get_path(),
+                        child.inst.inst_src_ref
+                    )
+        elif self.standard == Standard.IEEE_1685_2009:
+            # registers must all be listed before register files
+            for child in node.children(skip_not_present=False):
+                if isinstance(child, RegNode):
+                    self.add_register(parent, child)
+
+            for child in node.children(skip_not_present=False):
+                if isinstance(child, (AddrmapNode, RegfileNode)):
+                    self.add_registerFile(parent, child)
+                elif isinstance(child, MemNode):
+                    self.msg.warning(
+                        "IP-XACT does not support 'mem' nodes that are nested in hierarchy. Discarding '%s'"
+                        % child.get_path(),
+                        child.inst.inst_src_ref
+                    )
+        else:
+            raise RuntimeError
+
+    #---------------------------------------------------------------------------
+    def hex_str(self, v):
+        if self.standard >= Standard.IEEE_1685_2014:
+            return "'h%x" % v
+        else:
+            return "0x%x" % v
+
+    #---------------------------------------------------------------------------
+    def get_name(self, node):
+        return node.inst_name
+
+    def get_reg_addr_offset(self, node):
+        return node.raw_address_offset
+
+    def get_regfile_addr_offset(self, node):
+        return node.raw_address_offset
 
     #---------------------------------------------------------------------------
     def add_addressBlock(self, parent, node):
         self._max_width = None
 
-        addressBlock = self.doc.createElement("ipxact:addressBlock")
+        addressBlock = self.doc.createElement(self.ns + "addressBlock")
         parent.appendChild(addressBlock)
 
         self.add_nameGroup(addressBlock,
-            node.inst_name,
+            self.get_name(node),
             node.get_property("name", default=None),
             node.get_property("desc")
         )
 
-        if not node.get_property("ispresent"):
-            self.add_value(addressBlock, "ipxact:isPresent", "0")
+        if (self.standard >= Standard.IEEE_1685_2014) and not node.get_property("ispresent"):
+            self.add_value(addressBlock, self.ns + "isPresent", "0")
 
-        self.add_value(addressBlock, "ipxact:baseAddress", "'h%x" % node.absolute_address)
+        self.add_value(addressBlock, self.ns + "baseAddress", self.hex_str(node.absolute_address))
 
-        # DNE: <ipxact:typeIdentifier>
+        # DNE: <spirit/ipxact:typeIdentifier>
 
-        self.add_value(addressBlock, "ipxact:range", "'h%x" % node.size)
+        self.add_value(addressBlock, self.ns + "range", self.hex_str(node.size))
 
         # RDL only encodes the bus-width at the register level, but IP-XACT
         # only encodes this at the addressBlock level!
-        # Insert the with element for now, but leave contents blank until it is
+        # Insert the width element for now, but leave contents blank until it is
         # determined later.
         # Exporter has no choice but to enforce a constant width throughout
-        width_el = self.doc.createElement("ipxact:width")
+        width_el = self.doc.createElement(self.ns + "width")
         addressBlock.appendChild(width_el)
 
         if isinstance(node, MemNode):
-            self.add_value(addressBlock, "ipxact:usage", "memory")
+            self.add_value(addressBlock, self.ns + "usage", "memory")
             access = typemaps.access_from_sw(node.get_property("sw"))
-            self.add_value(addressBlock, "ipxact:access", access)
+            self.add_value(addressBlock, self.ns + "access", access)
 
-        # DNE: <ipxact:volatile>
-        # DNE: <ipxact:access>
-        # DNE: <ipxact:parameters>
+        # DNE: <spirit/ipxact:volatile>
+        # DNE: <spirit/ipxact:access>
+        # DNE: <spirit/ipxact:parameters>
 
-        for child in node.children(skip_not_present=False):
-            if isinstance(child, RegNode):
-                self.add_register(addressBlock, child)
-            elif isinstance(child, (AddrmapNode, RegfileNode)):
-                self.add_registerFile(addressBlock, child)
-            elif isinstance(child, MemNode):
-                self.msg.warning(
-                    "IP-XACT does not support 'mem' nodes that are nested in hierarchy. Discarding '%s'"
-                    % child.get_path(),
-                    child.inst.inst_src_ref
-                )
+        self.add_registerData(addressBlock, node)
 
         # Width should be known by now
         # If mem, and width isn't known, check memwidth
@@ -213,72 +266,62 @@ class IPXACTExporter:
         else:
             width_el.appendChild(self.doc.createTextNode("32"))
 
-        vendorExtensions = self.doc.createElement("ipxact:vendorExtensions")
+        vendorExtensions = self.doc.createElement(self.ns + "vendorExtensions")
         self.addressBlock_vendorExtensions(vendorExtensions, node)
         if vendorExtensions.hasChildNodes():
             parent.appendChild(vendorExtensions)
 
     #---------------------------------------------------------------------------
     def add_registerFile(self, parent, node):
-        registerFile = self.doc.createElement("ipxact:registerFile")
+        registerFile = self.doc.createElement(self.ns + "registerFile")
         parent.appendChild(registerFile)
 
         self.add_nameGroup(registerFile,
-            node.inst_name,
+            self.get_name(node),
             node.get_property("name", default=None),
             node.get_property("desc")
         )
 
-        if not node.get_property("ispresent"):
-            self.add_value(registerFile, "ipxact:isPresent", "0")
+        if (self.standard >= Standard.IEEE_1685_2014) and not node.get_property("ispresent"):
+            self.add_value(registerFile, self.ns + "isPresent", "0")
 
         if node.is_array:
             for dim in node.array_dimensions:
-                self.add_value(registerFile, "ipxact:dim", "%d" % dim)
+                self.add_value(registerFile, self.ns + "dim", "%d" % dim)
 
-        self.add_value(registerFile, "ipxact:addressOffset", "'h%x" % node.raw_address_offset)
+        self.add_value(registerFile, self.ns + "addressOffset", self.hex_str(self.get_regfile_addr_offset(node)))
 
-        # DNE: <ipxact:typeIdentifier>
+        # DNE: <spirit/ipxact:typeIdentifier>
 
         if node.is_array:
             # For arrays, ipxact:range also defines the increment between indexes
             # Must use stride instead
-            self.add_value(registerFile, "ipxact:range", "'h%x" % node.array_stride)
+            self.add_value(registerFile, self.ns + "range", self.hex_str(node.array_stride))
         else:
-            self.add_value(registerFile, "ipxact:range", "'h%x" % node.size)
+            self.add_value(registerFile, self.ns + "range", self.hex_str(node.size))
 
-        for child in node.children(skip_not_present=False):
-            if isinstance(child, RegNode):
-                self.add_register(registerFile, child)
-            elif isinstance(child, (AddrmapNode, RegfileNode)):
-                self.add_registerFile(registerFile, child)
-            elif isinstance(child, MemNode):
-                self.msg.warning(
-                    "IP-XACT does not support 'mem' nodes that are nested in hierarchy. Discarding '%s'"
-                    % child.get_path(),
-                    child.inst.inst_src_ref
-                )
+        self.add_registerData(registerFile, node)
 
-        # DNE: <ipxact:parameters>
+        # DNE: <spirit/ipxact:parameters>
 
-        vendorExtensions = self.doc.createElement("ipxact:vendorExtensions")
+        vendorExtensions = self.doc.createElement(self.ns + "vendorExtensions")
         self.registerFile_vendorExtensions(vendorExtensions, node)
         if vendorExtensions.hasChildNodes():
             parent.appendChild(vendorExtensions)
 
     #---------------------------------------------------------------------------
     def add_register(self, parent, node):
-        register = self.doc.createElement("ipxact:register")
+        register = self.doc.createElement(self.ns + "register")
         parent.appendChild(register)
 
         self.add_nameGroup(register,
-            node.inst_name,
+            self.get_name(node),
             node.get_property("name", default=None),
             node.get_property("desc")
         )
 
-        if not node.get_property("ispresent"):
-            self.add_value(register, "ipxact:isPresent", "0")
+        if (self.standard >= Standard.IEEE_1685_2014) and not node.get_property("ispresent"):
+            self.add_value(register, self.ns + "isPresent", "0")
 
         if node.is_array:
             if node.array_stride != (node.get_property("regwidth") / 8):
@@ -287,112 +330,130 @@ class IPXACTExporter:
                     node.inst.inst_src_ref
                 )
             for dim in node.array_dimensions:
-                self.add_value(register, "ipxact:dim", "%d" % dim)
+                self.add_value(register, self.ns + "dim", "%d" % dim)
 
-        self.add_value(register, "ipxact:addressOffset", "'h%x" % node.raw_address_offset)
+        self.add_value(register, self.ns + "addressOffset", self.hex_str(self.get_reg_addr_offset(node)))
 
-        # DNE: <ipxact:typeIdentifier>
+        # DNE: <spirit/ipxact:typeIdentifier>
 
-        self.add_value(register, "ipxact:size", "%d" % node.get_property("regwidth"))
+        self.add_value(register, self.ns + "size", "%d" % node.get_property("regwidth"))
 
         if self._max_width is None:
             self._max_width = max(node.get_property("accesswidth"), node.get_property("regwidth"))
         else:
             self._max_width = max(node.get_property("accesswidth"), node.get_property("regwidth"), self._max_width)
 
-        # DNE: <ipxact:volatile>
-        # DNE: <ipxact:access>
+        # DNE: <spirit/ipxact:volatile>
+        # DNE: <spirit/ipxact:access>
+
+        if self.standard <= Standard.IEEE_1685_2009:
+            reset = 0
+            mask = 0
+            for field in node.fields(skip_not_present=False):
+                field_reset = field.get_property("reset")
+                if field_reset is not None:
+                    field_mask = ((1 << field.width) - 1) << field.lsb
+                    field_reset = (field_reset << field.lsb) & field_mask
+                    reset |= field_reset
+                    mask |= field_mask
+
+            if mask != 0:
+                reset_el = self.doc.createElement(self.ns + "reset")
+                register.appendChild(reset_el)
+                self.add_value(reset_el, self.ns + "value", self.hex_str(reset))
+                self.add_value(reset_el, self.ns + "mask", self.hex_str(mask))
 
         for field in node.fields(skip_not_present=False):
             self.add_field(register, field)
 
-        # DNE <ipxact:alternateRegister> [...]
-        # DNE: <ipxact:parameters>
+        # DNE: <spirit/ipxact:alternateRegisters> [...]
+        # DNE: <spirit/ipxact:parameters>
 
-        vendorExtensions = self.doc.createElement("ipxact:vendorExtensions")
+        vendorExtensions = self.doc.createElement(self.ns + "vendorExtensions")
         self.register_vendorExtensions(vendorExtensions, node)
         if vendorExtensions.hasChildNodes():
             parent.appendChild(vendorExtensions)
 
     #---------------------------------------------------------------------------
     def add_field(self, parent, node):
-        field = self.doc.createElement("ipxact:field")
+        field = self.doc.createElement(self.ns + "field")
         parent.appendChild(field)
 
         self.add_nameGroup(field,
-            node.inst_name,
+            self.get_name(node),
             node.get_property("name", default=None),
             node.get_property("desc")
         )
 
-        if not node.get_property("ispresent"):
-            self.add_value(field, "ipxact:isPresent", "0")
+        if (self.standard >= Standard.IEEE_1685_2014) and not node.get_property("ispresent"):
+            self.add_value(field, self.ns + "isPresent", "0")
 
-        self.add_value(field, "ipxact:bitOffset", "%d" % node.low)
+        self.add_value(field, self.ns + "bitOffset", "%d" % node.low)
 
-        reset = node.get_property("reset")
-        if reset is not None:
-            resets_el = self.doc.createElement("ipxact:resets")
-            field.appendChild(resets_el)
-            reset_el = self.doc.createElement("ipxact:reset")
-            resets_el.appendChild(reset_el)
-            self.add_value(reset_el, "ipxact:value", "'h%x" % reset)
+        if self.standard >= Standard.IEEE_1685_2014:
+            reset = node.get_property("reset")
+            if reset is not None:
+                resets_el = self.doc.createElement(self.ns + "resets")
+                field.appendChild(resets_el)
+                reset_el = self.doc.createElement(self.ns + "reset")
+                resets_el.appendChild(reset_el)
+                self.add_value(reset_el, self.ns + "value", self.hex_str(reset))
 
-        # DNE: <ipxact:typeIdentifier>
+        # DNE: <spirit/ipxact:typeIdentifier>
 
-        self.add_value(field, "ipxact:bitWidth", "%d" % node.width)
+        self.add_value(field, self.ns + "bitWidth", "%d" % node.width)
 
         if node.is_volatile:
-            self.add_value(field, "ipxact:volatile", "true")
+            self.add_value(field, self.ns + "volatile", "true")
 
         sw = node.get_property("sw")
         self.add_value(
             field,
-            "ipxact:access",
+            self.ns + "access",
             typemaps.access_from_sw(sw)
         )
 
         encode = node.get_property("encode")
         if encode is not None:
-            enum_values_el = self.doc.createElement("ipxact:enumeratedValues")
+            enum_values_el = self.doc.createElement(self.ns + "enumeratedValues")
             field.appendChild(enum_values_el)
             for enum_value in encode:
-                enum_value_el = self.doc.createElement("ipxact:enumeratedValue")
+                enum_value_el = self.doc.createElement(self.ns + "enumeratedValue")
                 enum_values_el.appendChild(enum_value_el)
                 self.add_nameGroup(enum_value_el,
                     enum_value.name,
                     enum_value.rdl_name,
                     enum_value.rdl_desc
                 )
-                self.add_value(enum_value_el, "ipxact:value", "'h%x" % enum_value.value)
-                # DNE <ipxact:vendorExtensions>
+                self.add_value(enum_value_el, self.ns + "value", self.hex_str(enum_value.value))
+                # DNE <spirit/ipxact:vendorExtensions>
 
         onwrite = node.get_property("onwrite")
         if onwrite:
             self.add_value(
                 field,
-                "ipxact:modifiedWriteValue",
+                self.ns + "modifiedWriteValue",
                 typemaps.mwv_from_onwrite(onwrite)
             )
 
-        # DNE: <ipxact:writeValueConstraint>
+        # DNE: <spirit/ipxact:writeValueConstraint>
 
         onread = node.get_property("onread")
         if onread:
             self.add_value(
                 field,
-                "ipxact:readAction",
+                self.ns + "readAction",
                 typemaps.readaction_from_onread(onread)
             )
 
         if node.get_property("donttest"):
-            self.add_value(field, "ipxact:testable", "false")
+            self.add_value(field, self.ns + "testable", "false")
 
         # DNE: <ipxact:reserved>
 
-        # DNE: <ipxact:parameters>
+        # DNE: <spirit/ipxact:parameters>
 
-        vendorExtensions = self.doc.createElement("ipxact:vendorExtensions")
+        vendorExtensions = self.doc.createElement(self.ns + "vendorExtensions")
         self.field_vendorExtensions(vendorExtensions, node)
         if vendorExtensions.hasChildNodes():
             parent.appendChild(vendorExtensions)

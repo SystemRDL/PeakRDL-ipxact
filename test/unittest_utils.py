@@ -1,4 +1,4 @@
-
+import os
 import unittest
 import subprocess
 import logging
@@ -7,6 +7,7 @@ import filecmp
 from systemrdl import RDLCompiler
 from systemrdl.messages import MessagePrinter
 from ralbot.ipxact import IPXACTImporter, IPXACTExporter
+from ralbot.ipxact.exporter import Standard
 
 #===============================================================================
 class TestPrinter(MessagePrinter):
@@ -32,8 +33,8 @@ class IPXACTTestCase(unittest.TestCase):
                 ipxact.import_file(file)
         return rdlc.elaborate(top_name)
     
-    def export(self, node, file):
-        ipxact = IPXACTExporter()
+    def export(self, node, file, std):
+        ipxact = IPXACTExporter(standard=std)
         ipxact.export(node, file)
 
     def compare(self, file1, file2):
@@ -41,7 +42,7 @@ class IPXACTTestCase(unittest.TestCase):
         self.assertTrue(filecmp.cmp(
             file1,
             file2
-        ), 'file compare failed')
+        ), "file compare failed: '%s' != '%s'" % (file1, file2))
     
     def validate_xsd(self, file, xsd):
 
@@ -62,3 +63,12 @@ class IPXACTTestCase(unittest.TestCase):
         
         if not passed:
             raise AssertionError("XML Validate failed: %s" % stderr)
+    
+    def get_schema_path(self, std):
+        this_dir = os.path.dirname(os.path.realpath(__file__))
+        if std == Standard.IEEE_1685_2014:
+            return os.path.join(this_dir, "schema/1685-2014/index.xsd")
+        elif std == Standard.IEEE_1685_2009:
+            return os.path.join(this_dir, "schema/1685-2009/index.xsd")
+        else:
+            raise NotImplementedError

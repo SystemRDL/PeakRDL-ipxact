@@ -10,7 +10,8 @@ matrix:
 install:
   - pip install coverage python-coveralls
   - sudo apt-get install libxml2-utils
-  - test/schema/download_schema.sh
+  - test/schema/1685-2014/download_schema.sh
+  - test/schema/1685-2009/download_schema.sh
 script:
   - coverage3 run setup.py test
 after_success:

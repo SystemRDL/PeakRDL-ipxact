@@ -76,7 +76,10 @@ Constructor for the IP-XACT exporter class
 * `version`
     * Version string. Defaults to "1.0"
 * `standard`
-    * IP-XACT Standard to use. Currently only supports `ralbot.ipxact.Standard.IEEE_1685_2014`
+    * IP-XACT Standard to use. Currently supports:
+        * `ralbot.ipxact.Standard.IEEE_1685_2009`
+        * `ralbot.ipxact.Standard.IEEE_1685_2014`
+    * Defaults to IEEE Std 1685-2014
 * `xml_indent`
     * String to use for each indent level. Defaults to 2 spaces.
 * `xml_newline`

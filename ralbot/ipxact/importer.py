@@ -439,11 +439,12 @@ class IPXACTImporter(RDLImporter):
 
         reg_access = d.get('access', self._current_addressBlock_access)
         reg_reset_value = d.get('reset.value', None)
+        reg_reset_mask = d.get('reset.mask', None)
 
         # collect children
         for child_el in d['child_els']:
             if child_el.localName == "field":
-                field = self.parse_field(child_el, reg_access, reg_reset_value)
+                field = self.parse_field(child_el, reg_access, reg_reset_value, reg_reset_mask)
                 if field is not None:
                     C.children.append(field)
             else:
@@ -468,7 +469,7 @@ class IPXACTImporter(RDLImporter):
         return C
 
     #---------------------------------------------------------------------------
-    def parse_field(self, field, reg_access, reg_reset_value):
+    def parse_field(self, field, reg_access, reg_reset_value, reg_reset_mask):
         """
         Parses an field and returns an instantiated field component
         """
@@ -550,7 +551,14 @@ class IPXACTImporter(RDLImporter):
         elif reg_reset_value is not None:
             mask = (1 << C.width) - 1
             rst = (reg_reset_value >> C.lsb) & mask
-            self.assign_property(C, "reset", rst, self.src_ref)
+
+            if reg_reset_mask is None:
+                rmask = mask
+            else:
+                rmask = (reg_reset_mask >> C.lsb) & mask
+
+            if rmask:
+                self.assign_property(C, "reset", rst, self.src_ref)
 
         if 'readAction' in d:
             self.assign_property(C, "onread", d['readAction'], self.src_ref)
@@ -681,6 +689,10 @@ class IPXACTImporter(RDLImporter):
                 value_el = self.get_first_child_by_tag(reset, self.ns + ":value")
                 if value_el:
                     d['reset.value'] = self.parse_integer(get_text(value_el))
+
+                mask_el = self.get_first_child_by_tag(reset, self.ns + ":mask")
+                if mask_el:
+                    d['reset.mask'] = self.parse_integer(get_text(mask_el))
 
             elif child.localName == "access":
                 s = get_text(child)
