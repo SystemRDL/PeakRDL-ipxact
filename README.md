@@ -1,17 +1,17 @@
-[![Build Status](https://travis-ci.org/SystemRDL/RALBot-ipxact.svg?branch=master)](https://travis-ci.org/SystemRDL/RALBot-ipxact)
-[![Coverage Status](https://coveralls.io/repos/github/SystemRDL/RALBot-ipxact/badge.svg?branch=master)](https://coveralls.io/github/SystemRDL/RALBot-ipxact?branch=master)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ralbot-ipxact.svg)](https://pypi.org/project/ralbot-ipxact)
+[![Build Status](https://travis-ci.org/SystemRDL/PeakRDL-ipxact.svg?branch=master)](https://travis-ci.org/SystemRDL/PeakRDL-ipxact)
+[![Coverage Status](https://coveralls.io/repos/github/SystemRDL/PeakRDL-ipxact/badge.svg?branch=master)](https://coveralls.io/github/SystemRDL/PeakRDL-ipxact?branch=master)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/peakrdl-ipxact.svg)](https://pypi.org/project/peakrdl-ipxact)
 
-# RALBot-ipxact
-This package implements IP-XACT import and export for the RALBot toolchain
+# PeakRDL-ipxact
+This package implements IP-XACT import and export for the PeakRDL toolchain
 
 - **Export:** Convert compiled SystemRDL input into IP-XACT XML
 - **Import:** Read an IP-XACT file and import it into the `systemrdl-compiler` namespace
 
 ## Installing
-Install from [PyPi](https://pypi.org/project/ralbot-ipxact) using pip:
+Install from [PyPi](https://pypi.org/project/peakrdl-ipxact) using pip:
 
-    python3 -m pip install ralbot-ipxact
+    python3 -m pip install peakrdl-ipxact
 
 --------------------------------------------------------------------------------
 
@@ -22,7 +22,7 @@ to the exporter.
 ```python
 import sys
 from systemrdl import RDLCompiler, RDLCompileError
-from ralbot.ipxact import IPXACTExporter
+from peakrdl.ipxact import IPXACTExporter
 
 rdlc = RDLCompiler()
 
@@ -48,7 +48,7 @@ Import can occur at any point alongside normal RDL file compilation.
 ```python
 import sys
 from systemrdl import RDLCompiler, RDLCompileError
-from ralbot.ipxact import IPXACTImporter
+from peakrdl.ipxact import IPXACTImporter
 
 rdlc = RDLCompiler()
 ipxact = IPXACTImporter(rdlc)
@@ -77,8 +77,8 @@ Constructor for the IP-XACT exporter class
     * Version string. Defaults to "1.0"
 * `standard`
     * IP-XACT Standard to use. Currently supports:
-        * `ralbot.ipxact.Standard.IEEE_1685_2009`
-        * `ralbot.ipxact.Standard.IEEE_1685_2014`
+        * `peakrdl.ipxact.Standard.IEEE_1685_2009`
+        * `peakrdl.ipxact.Standard.IEEE_1685_2014`
     * Defaults to IEEE Std 1685-2014
 * `xml_indent`
     * String to use for each indent level. Defaults to 2 spaces.

@@ -6,8 +6,8 @@ import filecmp
 
 from systemrdl import RDLCompiler
 from systemrdl.messages import MessagePrinter
-from ralbot.ipxact import IPXACTImporter, IPXACTExporter
-from ralbot.ipxact.exporter import Standard
+from peakrdl.ipxact import IPXACTImporter, IPXACTExporter
+from peakrdl.ipxact.exporter import Standard
 
 #===============================================================================
 class TestPrinter(MessagePrinter):

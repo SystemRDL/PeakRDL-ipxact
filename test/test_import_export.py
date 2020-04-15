@@ -2,7 +2,7 @@ import os
 import filecmp
 import tempfile
 
-from ralbot.ipxact.exporter import Standard
+from peakrdl.ipxact.exporter import Standard
 
 from .unittest_utils import IPXACTTestCase
 
