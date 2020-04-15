@@ -18,7 +18,7 @@ setuptools.setup(
     description="Import and export IP-XACT XML to/from the systemrdl-compiler register model",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/SystemRDL/RALBot-ipxact",
+    url="https://github.com/SystemRDL/PeakRDL-ipxact",
     packages=['ralbot.ipxact'],
     include_package_data=True,
     python_requires='>=3.4',
@@ -26,7 +26,7 @@ setuptools.setup(
         "systemrdl-compiler>=1.5.0",
     ],
     classifiers=(
-        "Development Status :: 5 - Production/Stable",
+        "Development Status :: 7 - Inactive",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.4",
@@ -41,7 +41,7 @@ setuptools.setup(
     ),
     project_urls={
         #"Documentation": "TBD",
-        "Source": "https://github.com/SystemRDL/RALBot-ipxact",
-        "Tracker": "https://github.com/SystemRDL/RALBot-ipxact/issues",
+        "Source": "https://github.com/SystemRDL/PeakRDL-ipxact",
+        "Tracker": "https://github.com/SystemRDL/PeakRDL-ipxact/issues",
     },
 )
