@@ -1,0 +1,13 @@
+
+addrmap my_subblock {
+    field my_field_t {};
+
+    reg {
+        my_field_t f1[0:0] = 0;
+        my_field_t f2[15:8] = 123;
+    } reg1;
+
+    reg {
+        my_field_t x[0:0] = 0;
+    } reg_array[4] @ 0x100 += 4;
+};

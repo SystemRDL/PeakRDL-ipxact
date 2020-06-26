@@ -1,0 +1,9 @@
+
+addrmap my_top_design {
+    // Imported externally
+    my_subblock my_subblock_inst;
+
+    reg {
+        field {} x[32] = 0;
+    } other_reg @ 0x1000;
+};
