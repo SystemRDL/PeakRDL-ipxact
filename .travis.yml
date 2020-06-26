@@ -6,7 +6,7 @@ python:
   - 3.8
 
 install:
-  - pip install pytest pytest-cov python-coveralls coverage==4.5.4
+  - pip install -U pytest pytest-cov python-coveralls coverage==4.5.4
   - sudo apt-get install libxml2-utils
 
 script:
