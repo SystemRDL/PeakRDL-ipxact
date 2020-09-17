@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/SystemRDL/PeakRDL-ipxact.svg?branch=master)](https://travis-ci.org/SystemRDL/PeakRDL-ipxact)
+[![Build Status](https://travis-ci.com/SystemRDL/PeakRDL-ipxact.svg?branch=master)](https://travis-ci.com/SystemRDL/PeakRDL-ipxact)
 [![Coverage Status](https://coveralls.io/repos/github/SystemRDL/PeakRDL-ipxact/badge.svg?branch=master)](https://coveralls.io/github/SystemRDL/PeakRDL-ipxact?branch=master)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/peakrdl-ipxact.svg)](https://pypi.org/project/peakrdl-ipxact)
 
