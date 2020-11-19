@@ -273,7 +273,7 @@ class IPXACTExporter:
         vendorExtensions = self.doc.createElement(self.ns + "vendorExtensions")
         self.addressBlock_vendorExtensions(vendorExtensions, node)
         if vendorExtensions.hasChildNodes():
-            parent.appendChild(vendorExtensions)
+            addressBlock.appendChild(vendorExtensions)
 
     #---------------------------------------------------------------------------
     def add_registerFile(self, parent: minidom.Element, node: Union[RegfileNode, AddrmapNode]) -> None:
@@ -311,7 +311,7 @@ class IPXACTExporter:
         vendorExtensions = self.doc.createElement(self.ns + "vendorExtensions")
         self.registerFile_vendorExtensions(vendorExtensions, node)
         if vendorExtensions.hasChildNodes():
-            parent.appendChild(vendorExtensions)
+            registerFile.appendChild(vendorExtensions)
 
     #---------------------------------------------------------------------------
     def add_register(self, parent: minidom.Element, node: RegNode) -> None:
@@ -376,7 +376,7 @@ class IPXACTExporter:
         vendorExtensions = self.doc.createElement(self.ns + "vendorExtensions")
         self.register_vendorExtensions(vendorExtensions, node)
         if vendorExtensions.hasChildNodes():
-            parent.appendChild(vendorExtensions)
+            register.appendChild(vendorExtensions)
 
     #---------------------------------------------------------------------------
     def add_field(self, parent: minidom.Element, node: FieldNode) -> None:
@@ -460,7 +460,7 @@ class IPXACTExporter:
         vendorExtensions = self.doc.createElement(self.ns + "vendorExtensions")
         self.field_vendorExtensions(vendorExtensions, node)
         if vendorExtensions.hasChildNodes():
-            parent.appendChild(vendorExtensions)
+            field.appendChild(vendorExtensions)
 
     #---------------------------------------------------------------------------
     def addressBlock_vendorExtensions(self, parent:minidom.Element, node:AddressableNode) -> None:
