@@ -1,5 +1,11 @@
 [run]
 
+[paths]
+source =
+    ../peakrdl/
+    */site-packages/*/peakrdl
+    */site-packages/peakrdl
+
 [report]
 exclude_lines =
     pragma: no cover
