@@ -4,6 +4,7 @@ python:
   - 3.8
 
   # Also run tests on:
+  - 3.5.2
   - 3.5
   - 3.6
   - 3.7
@@ -14,7 +15,7 @@ install:
   - sudo apt-get install libxml2-utils
 
 script:
-  - python3 setup.py install
+  - python3 -m pip install .
   - test/schema/1685-2014/download_schema.sh
   - test/schema/1685-2009/download_schema.sh
   - cd test
@@ -39,6 +40,12 @@ jobs:
         - python3 -m pip install pylint
         - python3 -m pip install .
       script: pylint --rcfile test/pylint.rc peakrdl
+
+    # Run static type checking
+    - name: Type Check
+      install:
+        - python3 -m pip install mypy
+      script: mypy --config-file test/mypy.ini peakrdl
 
     # Deploy source distribution
     - stage: deploy

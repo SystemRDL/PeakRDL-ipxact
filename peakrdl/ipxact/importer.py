@@ -1,4 +1,4 @@
-
+from typing import Optional, List, Iterable, Dict, Any, Type, Union
 import re
 
 from collections import OrderedDict
@@ -13,16 +13,16 @@ from . import typemaps
 
 class IPXACTImporter(RDLImporter):
 
-    def __init__(self, compiler:RDLCompiler):
+    def __init__(self, compiler: RDLCompiler):
         super().__init__(compiler)
         self.src_ref = None
-        self.ns = None
+        self.ns = None # type: str
         self._current_regwidth = 32
         self._addressUnitBits = 8
         self._current_addressBlock_access = rdltypes.AccessType.rw
 
     #---------------------------------------------------------------------------
-    def import_file(self, path:str):
+    def import_file(self, path: str) -> None:
 
         # minidom does not provide file position data. Using a bare SourceRef
         # for everything created during this import
@@ -99,7 +99,7 @@ class IPXACTImporter(RDLImporter):
         self.register_root_component(top_component)
 
     #---------------------------------------------------------------------------
-    def seek_to_top_addressBlocks(self, dom):
+    def seek_to_top_addressBlocks(self, dom: minidom.Element) -> List[minidom.Element]:
         """
         IP-XACT files can be a little ambiguous depending on who they come from
         This function returns the most reasonable starting point to use
@@ -175,7 +175,7 @@ class IPXACTImporter(RDLImporter):
         return addressBlock_s
 
     #---------------------------------------------------------------------------
-    def parse_addressBlock(self, addressBlock):
+    def parse_addressBlock(self, addressBlock: minidom.Element) -> Union[comp.Addrmap, comp.Mem]:
         """
         Parses an addressBlock and returns an instantiated addrmap or mem
         component.
@@ -288,7 +288,7 @@ class IPXACTImporter(RDLImporter):
         return C
 
     #---------------------------------------------------------------------------
-    def parse_registerFile(self, registerFile):
+    def parse_registerFile(self, registerFile: minidom.Element) -> comp.Regfile:
         """
         Parses an registerFile and returns an instantiated regfile component
         """
@@ -375,7 +375,7 @@ class IPXACTImporter(RDLImporter):
         return C
 
     #---------------------------------------------------------------------------
-    def parse_register(self, register):
+    def parse_register(self, register: minidom.Element) -> comp.Reg:
         """
         Parses a register and returns an instantiated reg component
         """
@@ -469,7 +469,7 @@ class IPXACTImporter(RDLImporter):
         return C
 
     #---------------------------------------------------------------------------
-    def parse_field(self, field, reg_access, reg_reset_value, reg_reset_mask):
+    def parse_field(self, field: minidom.Element, reg_access: rdltypes.AccessType, reg_reset_value: Optional[int], reg_reset_mask: Optional[int]) -> comp.Field:
         """
         Parses an field and returns an instantiated field component
         """
@@ -576,7 +576,7 @@ class IPXACTImporter(RDLImporter):
         return C
 
     #---------------------------------------------------------------------------
-    def parse_integer(self, s):
+    def parse_integer(self, s: str) -> int:
         """
         Converts an IP-XACT number string into an int
 
@@ -632,7 +632,7 @@ class IPXACTImporter(RDLImporter):
         raise ValueError
 
     #---------------------------------------------------------------------------
-    def parse_boolean(self, s):
+    def parse_boolean(self, s: str) -> bool:
         """
         Converts several boolean-ish representations to a true bool.
         """
@@ -645,7 +645,7 @@ class IPXACTImporter(RDLImporter):
             raise ValueError("Unable to parse boolean value '%s'" % s)
 
     #---------------------------------------------------------------------------
-    def flatten_element_values(self, el):
+    def flatten_element_values(self, el: minidom.Element) -> Dict[str, Any]:
         """
         Given any of the IP-XACT RAL component elements, flatten the
         key/value tags into a dictionary.
@@ -658,7 +658,7 @@ class IPXACTImporter(RDLImporter):
 
         d = {
             'child_els' : []
-        }
+        } # type: Dict[str, Any]
 
         for child in self.iterelements(el):
             if child.localName in ("name", "displayName", "description", "usage"):
@@ -746,7 +746,7 @@ class IPXACTImporter(RDLImporter):
         return d
 
     #---------------------------------------------------------------------------
-    def parse_enumeratedValues(self, enumeratedValues, type_name):
+    def parse_enumeratedValues(self, enumeratedValues: minidom.Element, type_name: str) -> Type[rdltypes.UserEnum]:
         """
         Parses an enumeration listing and returns the user-defined enum type
         """
@@ -756,7 +756,7 @@ class IPXACTImporter(RDLImporter):
                 continue
 
             # Flatten element values
-            d = {}
+            d = {} # type: Dict[str, Any]
             for child in self.iterelements(enumeratedValue):
                 if child.localName in ("name", "displayName", "description"):
                     d[child.localName] = get_text(child)
@@ -782,7 +782,7 @@ class IPXACTImporter(RDLImporter):
 
     #---------------------------------------------------------------------------
     @staticmethod
-    def get_children_by_tag(el, tag):
+    def get_children_by_tag(el: minidom.Element, tag: str) -> List[minidom.Element]:
         # Returns a list of immediate children that match the full tag
         c = []
         for child in el.childNodes:
@@ -792,7 +792,7 @@ class IPXACTImporter(RDLImporter):
 
     #---------------------------------------------------------------------------
     @staticmethod
-    def get_first_child_by_tag(el, tag):
+    def get_first_child_by_tag(el: minidom.Element, tag: str) -> Optional[minidom.Element]:
         # Returns the first child that matches the full tag
         for child in el.childNodes:
             if isinstance(child, minidom.Element) and (child.tagName == tag):
@@ -800,7 +800,7 @@ class IPXACTImporter(RDLImporter):
         return None
 
     #---------------------------------------------------------------------------
-    def iterelements(self, el):
+    def iterelements(self, el: minidom.Element) -> Iterable[minidom.Element]:
         for child in el.childNodes:
             if not isinstance(child, minidom.Element):
                 continue
@@ -809,7 +809,7 @@ class IPXACTImporter(RDLImporter):
             yield child
 
     #---------------------------------------------------------------------------
-    def AU_to_bytes(self, au):
+    def AU_to_bytes(self, au: int) -> int:
         """
         IP-XACT addresses are byte-agnostic and express addresses and ranges as
         'addressable units' that each span addressUnitBits bits.
@@ -823,24 +823,24 @@ class IPXACTImporter(RDLImporter):
         return byte_units
 
     #---------------------------------------------------------------------------
-    def addressBlock_vendorExtensions(self, vendorExtensions:minidom.Element, component:comp.Component):
+    def addressBlock_vendorExtensions(self, vendorExtensions: minidom.Element, component: comp.Component) -> comp.Component:
         #pylint: disable=unused-argument
         return component
 
-    def registerFile_vendorExtensions(self, vendorExtensions:minidom.Element, component:comp.Component):
+    def registerFile_vendorExtensions(self, vendorExtensions: minidom.Element, component: comp.Component) -> comp.Component:
         #pylint: disable=unused-argument
         return component
 
-    def register_vendorExtensions(self, vendorExtensions:minidom.Element, component:comp.Component):
+    def register_vendorExtensions(self, vendorExtensions: minidom.Element, component: comp.Component) -> comp.Component:
         #pylint: disable=unused-argument
         return component
 
-    def field_vendorExtensions(self, vendorExtensions:minidom.Element, component:comp.Component):
+    def field_vendorExtensions(self, vendorExtensions: minidom.Element, component: comp.Component) -> comp.Component:
         #pylint: disable=unused-argument
         return component
 
 #===============================================================================
-def get_text(el):
+def get_text(el: minidom.Element) -> str:
     for child in el.childNodes:
         if isinstance(child, minidom.Text):
             return child.data

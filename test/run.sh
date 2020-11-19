@@ -14,10 +14,11 @@ python=$venv_bin/python
 pytest=$venv_bin/pytest
 coverage=$venv_bin/coverage
 pylint=$venv_bin/pylint
+mypy=$venv_bin/mypy
 
 # Install test dependencies
 $python -m pip install -U pip setuptools
-$python -m pip install pytest pytest-cov coverage pylint
+$python -m pip install pytest pytest-cov coverage pylint mypy
 
 # Install dut
 cd $this_dir/../
@@ -37,3 +38,6 @@ $coverage html -d $this_dir/htmlcov
 
 # Run lint
 $pylint --rcfile $this_dir/pylint.rc peakrdl | tee $this_dir/lint.rpt
+
+# Run static type checking
+$mypy $this_dir/../peakrdl

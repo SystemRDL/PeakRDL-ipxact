@@ -1,11 +1,15 @@
+from typing import Union, Optional, TYPE_CHECKING, Any
 import enum
 
 from xml.dom import minidom
-from systemrdl.node import AddressableNode, RootNode
+from systemrdl.node import AddressableNode, RootNode, Node
 from systemrdl.node import AddrmapNode, MemNode
 from systemrdl.node import RegNode, RegfileNode, FieldNode
 
 from . import typemaps
+
+if TYPE_CHECKING:
+    from systemrdl.messages import MessageHandler
 
 class Standard(enum.IntEnum):
     SPIRIT_1_0 = 1.0
@@ -18,8 +22,8 @@ class Standard(enum.IntEnum):
 
 #===============================================================================
 class IPXACTExporter:
-    def __init__(self, **kwargs):
-        self.msg = None
+    def __init__(self, **kwargs: Any) -> None:
+        self.msg = None # type: MessageHandler
 
         self.vendor = kwargs.pop("vendor", "example.org")
         self.library = kwargs.pop("library", "mylibrary")
@@ -27,8 +31,8 @@ class IPXACTExporter:
         self.standard = kwargs.pop("standard", Standard.IEEE_1685_2014)
         self.xml_indent = kwargs.pop("xml_indent", "  ")
         self.xml_newline = kwargs.pop("xml_newline", "\n")
-        self.doc = None
-        self._max_width = None
+        self.doc = None # type: minidom.Document
+        self._max_width = None # type: Optional[int]
 
         # Check for stray kwargs
         if kwargs:
@@ -43,7 +47,7 @@ class IPXACTExporter:
             self.ns = "spirit:"
 
     #---------------------------------------------------------------------------
-    def export(self, node, path):
+    def export(self, node: Union[AddrmapNode, RootNode], path: str) -> None:
         self.msg = node.env.msg
 
         # If it is the root node, skip to top addrmap
@@ -151,14 +155,14 @@ class IPXACTExporter:
             )
 
     #---------------------------------------------------------------------------
-    def add_value(self, parent, tag, value):
+    def add_value(self, parent: minidom.Element, tag: str, value: str) -> None:
         el = self.doc.createElement(tag)
         txt = self.doc.createTextNode(value)
         el.appendChild(txt)
         parent.appendChild(el)
 
     #---------------------------------------------------------------------------
-    def add_nameGroup(self, parent, name, displayName=None, description=None):
+    def add_nameGroup(self, parent: minidom.Element, name: str, displayName: Optional[str]=None, description: Optional[str]=None) -> None:
         self.add_value(parent, self.ns + "name", name)
         if displayName is not None:
             self.add_value(parent, self.ns + "displayName", displayName)
@@ -166,7 +170,7 @@ class IPXACTExporter:
             self.add_value(parent, self.ns + "description", description)
 
     #---------------------------------------------------------------------------
-    def add_registerData(self, parent, node):
+    def add_registerData(self, parent: minidom.Element, node: RegNode) -> None:
         if self.standard == Standard.IEEE_1685_2014:
             # registers and registerFiles can be interleaved
             for child in node.children(skip_not_present=False):
@@ -199,24 +203,24 @@ class IPXACTExporter:
             raise RuntimeError
 
     #---------------------------------------------------------------------------
-    def hex_str(self, v):
+    def hex_str(self, v: int) -> str:
         if self.standard >= Standard.IEEE_1685_2014:
             return "'h%x" % v
         else:
             return "0x%x" % v
 
     #---------------------------------------------------------------------------
-    def get_name(self, node):
+    def get_name(self, node: Node) -> str:
         return node.inst_name
 
-    def get_reg_addr_offset(self, node):
+    def get_reg_addr_offset(self, node: AddressableNode) -> int:
         return node.raw_address_offset
 
-    def get_regfile_addr_offset(self, node):
+    def get_regfile_addr_offset(self, node: AddressableNode) -> int:
         return node.raw_address_offset
 
     #---------------------------------------------------------------------------
-    def add_addressBlock(self, parent, node):
+    def add_addressBlock(self, parent: minidom.Element, node: AddressableNode) -> None:
         self._max_width = None
 
         addressBlock = self.doc.createElement(self.ns + "addressBlock")
@@ -272,7 +276,7 @@ class IPXACTExporter:
             parent.appendChild(vendorExtensions)
 
     #---------------------------------------------------------------------------
-    def add_registerFile(self, parent, node):
+    def add_registerFile(self, parent: minidom.Element, node: Union[RegfileNode, AddrmapNode]) -> None:
         registerFile = self.doc.createElement(self.ns + "registerFile")
         parent.appendChild(registerFile)
 
@@ -310,7 +314,7 @@ class IPXACTExporter:
             parent.appendChild(vendorExtensions)
 
     #---------------------------------------------------------------------------
-    def add_register(self, parent, node):
+    def add_register(self, parent: minidom.Element, node: RegNode) -> None:
         register = self.doc.createElement(self.ns + "register")
         parent.appendChild(register)
 
@@ -375,7 +379,7 @@ class IPXACTExporter:
             parent.appendChild(vendorExtensions)
 
     #---------------------------------------------------------------------------
-    def add_field(self, parent, node):
+    def add_field(self, parent: minidom.Element, node: FieldNode) -> None:
         field = self.doc.createElement(self.ns + "field")
         parent.appendChild(field)
 
@@ -459,14 +463,14 @@ class IPXACTExporter:
             parent.appendChild(vendorExtensions)
 
     #---------------------------------------------------------------------------
-    def addressBlock_vendorExtensions(self, parent:minidom.Element, node:AddressableNode):
+    def addressBlock_vendorExtensions(self, parent:minidom.Element, node:AddressableNode) -> None:
         pass
 
-    def registerFile_vendorExtensions(self, parent:minidom.Element, node:AddressableNode):
+    def registerFile_vendorExtensions(self, parent:minidom.Element, node:AddressableNode) -> None:
         pass
 
-    def register_vendorExtensions(self, parent:minidom.Element, node:RegNode):
+    def register_vendorExtensions(self, parent:minidom.Element, node:RegNode) -> None:
         pass
 
-    def field_vendorExtensions(self, parent:minidom.Element, node:FieldNode):
+    def field_vendorExtensions(self, parent:minidom.Element, node:FieldNode) -> None:
         pass
