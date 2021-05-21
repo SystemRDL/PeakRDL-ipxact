@@ -23,13 +23,12 @@ setuptools.setup(
     include_package_data=True,
     python_requires='>=3.5.2',
     install_requires=[
-        "systemrdl-compiler>=1.5.0",
+        "systemrdl-compiler>=1.16.0",
     ],
     classifiers=(
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",

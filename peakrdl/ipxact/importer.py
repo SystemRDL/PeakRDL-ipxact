@@ -6,7 +6,7 @@ from xml.dom import minidom
 
 from systemrdl import RDLCompiler, RDLImporter
 from systemrdl import rdltypes
-from systemrdl.messages import SourceRef
+from systemrdl.messages import SourceRefBase
 from systemrdl import component as comp
 
 from . import typemaps
@@ -15,18 +15,21 @@ class IPXACTImporter(RDLImporter):
 
     def __init__(self, compiler: RDLCompiler):
         super().__init__(compiler)
-        self.src_ref = None
         self.ns = None # type: str
         self._current_regwidth = 32
         self._addressUnitBits = 8
         self._current_addressBlock_access = rdltypes.AccessType.rw
 
+    @property
+    def src_ref(self) -> SourceRefBase:
+        return self.default_src_ref
+
     #---------------------------------------------------------------------------
     def import_file(self, path: str) -> None:
+        super().import_file(path)
 
         # minidom does not provide file position data. Using a bare SourceRef
         # for everything created during this import
-        self.src_ref = SourceRef(filename=path)
         self._current_regwidth = 32
         self._addressUnitBits = 8
 
@@ -85,10 +88,10 @@ class IPXACTImporter(RDLImporter):
             C.type_name = d['name']
 
             if 'displayName' in d:
-                self.assign_property(C, "name", d['displayName'], self.src_ref)
+                self.assign_property(C, "name", d['displayName'])
 
             if 'description' in d:
-                self.assign_property(C, "desc", d['description'], self.src_ref)
+                self.assign_property(C, "desc", d['description'])
 
             # Insert all the addrmap_or_mems as children
             C.children = addrmap_or_mems
@@ -222,39 +225,40 @@ class IPXACTImporter(RDLImporter):
         # Create component instance
         if d.get('usage', None) == "memory":
             is_memory = True
-            C = comp.Mem()
         else:
             is_memory = False
-            C = comp.Addrmap()
-        C.def_src_ref = self.src_ref
-        C.is_instance = True
-        C.inst_src_ref = self.src_ref
+
+        if is_memory:
+            C = self.instantiate_mem(
+                self.create_mem_definition(),
+                d['name'], self.AU_to_bytes(d['baseAddress'])
+            )
+        else:
+            C = self.instantiate_addrmap(
+                self.create_addrmap_definition(),
+                d['name'], self.AU_to_bytes(d['baseAddress'])
+            )
 
         # Collect properties and other values
-        C.inst_name = d['name']
-
         if 'displayName' in d:
-            self.assign_property(C, "name", d['displayName'], self.src_ref)
+            self.assign_property(C, "name", d['displayName'])
 
         if 'description' in d:
-            self.assign_property(C, "desc", d['description'], self.src_ref)
+            self.assign_property(C, "desc", d['description'])
 
         if 'isPresent' in d:
-            self.assign_property(C, "ispresent", d['isPresent'], self.src_ref)
-
-        C.addr_offset = self.AU_to_bytes(d['baseAddress'])
+            self.assign_property(C, "ispresent", d['isPresent'])
 
         self._current_regwidth = d['width']
         if is_memory:
-            self.assign_property(C, "memwidth", d['width'], self.src_ref)
+            self.assign_property(C, "memwidth", d['width'])
             self.assign_property(
                 C, "mementries",
-                (d['range'] * self._addressUnitBits) // (d['width']),
-                self.src_ref
+                (d['range'] * self._addressUnitBits) // (d['width'])
             )
 
             if 'access' in d:
-                self.assign_property(C, "sw", d['access'], self.src_ref)
+                self.assign_property(C, "sw", d['access'])
 
         if 'access' in d:
             self._current_addressBlock_access = d['access']
@@ -266,11 +270,11 @@ class IPXACTImporter(RDLImporter):
             if child_el.localName == "register":
                 R = self.parse_register(child_el)
                 if R:
-                    C.children.append(R)
+                    self.add_child(C, R)
             elif child_el.localName == "registerFile" and not is_memory:
                 R = self.parse_registerFile(child_el)
                 if R:
-                    C.children.append(R)
+                    self.add_child(C, R)
             else:
                 self.msg.error(
                     "Invalid child element <%s> found in <%s:addressBlock>"
@@ -319,40 +323,39 @@ class IPXACTImporter(RDLImporter):
             self.msg.fatal("registerFile is missing required tag '%s'" % m, self.src_ref)
 
         # Create component instance
-        C = comp.Regfile()
-        C.def_src_ref = self.src_ref
-        C.is_instance = True
-        C.inst_src_ref = self.src_ref
+        if 'dim' in d:
+            # is array
+            C = self.instantiate_regfile(
+                self.create_regfile_definition(),
+                d['name'], self.AU_to_bytes(d['addressOffset']),
+                d['dim'], self.AU_to_bytes(d['range'])
+            )
+        else:
+            C = self.instantiate_regfile(
+                self.create_regfile_definition(),
+                d['name'], self.AU_to_bytes(d['addressOffset'])
+            )
 
         # Collect properties and other values
-        C.inst_name = d['name']
-
         if 'displayName' in d:
-            self.assign_property(C, "name", d['displayName'], self.src_ref)
+            self.assign_property(C, "name", d['displayName'])
 
         if 'description' in d:
-            self.assign_property(C, "desc", d['description'], self.src_ref)
+            self.assign_property(C, "desc", d['description'])
 
         if 'isPresent' in d:
-            self.assign_property(C, "ispresent", d['isPresent'], self.src_ref)
-
-        C.addr_offset = self.AU_to_bytes(d['addressOffset'])
-
-        if 'dim' in d:
-            C.is_array = True
-            C.array_dimensions = d['dim']
-            C.array_stride = self.AU_to_bytes(d['range'])
+            self.assign_property(C, "ispresent", d['isPresent'])
 
         # collect children
         for child_el in d['child_els']:
             if child_el.localName == "register":
                 R = self.parse_register(child_el)
                 if R:
-                    C.children.append(R)
+                    self.add_child(C, R)
             elif child_el.localName == "registerFile":
                 R = self.parse_registerFile(child_el)
                 if R:
-                    C.children.append(R)
+                    self.add_child(C, R)
             else:
                 self.msg.error(
                     "Invalid child element <%s> found in <%s:registerFile>"
@@ -411,30 +414,30 @@ class IPXACTImporter(RDLImporter):
             self.msg.fatal("register is missing required tag '%s'" % m, self.src_ref)
 
         # Create component instance
-        C = comp.Reg()
-        C.def_src_ref = self.src_ref
-        C.is_instance = True
-        C.inst_src_ref = self.src_ref
+        if 'dim' in d:
+            # is array
+            C = self.instantiate_reg(
+                self.create_reg_definition(),
+                d['name'], self.AU_to_bytes(d['addressOffset']),
+                d['dim'], d['size'] // 8
+            )
+        else:
+            C = self.instantiate_reg(
+                self.create_reg_definition(),
+                d['name'], self.AU_to_bytes(d['addressOffset'])
+            )
 
         # Collect properties and other values
-        C.inst_name = d['name']
-        C.addr_offset = self.AU_to_bytes(d['addressOffset'])
-
         if 'displayName' in d:
-            self.assign_property(C, "name", d['displayName'], self.src_ref)
+            self.assign_property(C, "name", d['displayName'])
 
         if 'description' in d:
-            self.assign_property(C, "desc", d['description'], self.src_ref)
+            self.assign_property(C, "desc", d['description'])
 
         if 'isPresent' in d:
-            self.assign_property(C, "ispresent", d['isPresent'], self.src_ref)
+            self.assign_property(C, "ispresent", d['isPresent'])
 
-        if 'dim' in d:
-            C.is_array = True
-            C.array_dimensions = d['dim']
-            C.array_stride = d['size'] // 8
-
-        self.assign_property(C, "regwidth", d['size'], self.src_ref)
+        self.assign_property(C, "regwidth", d['size'])
 
 
         reg_access = d.get('access', self._current_addressBlock_access)
@@ -446,7 +449,7 @@ class IPXACTImporter(RDLImporter):
             if child_el.localName == "field":
                 field = self.parse_field(child_el, reg_access, reg_reset_value, reg_reset_mask)
                 if field is not None:
-                    C.children.append(field)
+                    self.add_child(C, field)
             else:
                 self.msg.error(
                     "Invalid child element <%s> found in <%s:register>"
@@ -515,39 +518,31 @@ class IPXACTImporter(RDLImporter):
             return None
 
         # Create component instance
-        C = comp.Field()
-        C.def_src_ref = self.src_ref
-        C.is_instance = True
-        C.inst_src_ref = self.src_ref
+        C = self.instantiate_field(
+            self.create_field_definition(),
+            d['name'], d['bitOffset'], d['bitWidth']
+        )
 
         # Collect properties and other values
-        C.inst_name = d['name']
-
         if 'displayName' in d:
-            self.assign_property(C, "name", d['displayName'], self.src_ref)
+            self.assign_property(C, "name", d['displayName'])
 
         if 'description' in d:
-            self.assign_property(C, "desc", d['description'], self.src_ref)
+            self.assign_property(C, "desc", d['description'])
 
         if 'isPresent' in d:
-            self.assign_property(C, "ispresent", d['isPresent'], self.src_ref)
-
-        C.lsb = d['bitOffset']
-        C.low = C.lsb
-        C.width = d['bitWidth']
-        C.msb = C.lsb + C.width - 1
-        C.high = C.msb
+            self.assign_property(C, "ispresent", d['isPresent'])
 
         if 'access' in d:
-            self.assign_property(C, "sw", d['access'], self.src_ref)
+            self.assign_property(C, "sw", d['access'])
         else:
-            self.assign_property(C, "sw", reg_access, self.src_ref)
+            self.assign_property(C, "sw", reg_access)
 
         if 'testable' in d:
-            self.assign_property(C, "donttest", not d['testable'], self.src_ref)
+            self.assign_property(C, "donttest", not d['testable'])
 
         if 'reset.value' in d:
-            self.assign_property(C, "reset", d['reset.value'], self.src_ref)
+            self.assign_property(C, "reset", d['reset.value'])
         elif reg_reset_value is not None:
             mask = (1 << C.width) - 1
             rst = (reg_reset_value >> C.lsb) & mask
@@ -558,17 +553,17 @@ class IPXACTImporter(RDLImporter):
                 rmask = (reg_reset_mask >> C.lsb) & mask
 
             if rmask:
-                self.assign_property(C, "reset", rst, self.src_ref)
+                self.assign_property(C, "reset", rst)
 
         if 'readAction' in d:
-            self.assign_property(C, "onread", d['readAction'], self.src_ref)
+            self.assign_property(C, "onread", d['readAction'])
 
         if 'modifiedWriteValue' in d:
-            self.assign_property(C, "onwrite", d['modifiedWriteValue'], self.src_ref)
+            self.assign_property(C, "onwrite", d['modifiedWriteValue'])
 
         if 'enum_el' in d:
             enum_type = self.parse_enumeratedValues(d['enum_el'], C.inst_name + "_enum_t")
-            self.assign_property(C, "encode", enum_type, self.src_ref)
+            self.assign_property(C, "encode", enum_type)
 
         if 'vendorExtensions' in d:
             C = self.field_vendorExtensions(d['vendorExtensions'], C)
