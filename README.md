@@ -1,4 +1,4 @@
-![.github/workflows/build.yml](https://github.com/SystemRDL/PeakRDL-ipxact/workflows/.github/workflows/build.yml/badge.svg)
+[![build](https://github.com/SystemRDL/PeakRDL-ipxact/workflows/build/badge.svg)](https://github.com/SystemRDL/PeakRDL-ipxact/actions?query=workflow%3Abuild+branch%3Amaster)
 [![Coverage Status](https://coveralls.io/repos/github/SystemRDL/PeakRDL-ipxact/badge.svg?branch=master)](https://coveralls.io/github/SystemRDL/PeakRDL-ipxact?branch=master)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/peakrdl-ipxact.svg)](https://pypi.org/project/peakrdl-ipxact)
 
