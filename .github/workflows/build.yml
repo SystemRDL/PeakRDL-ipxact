@@ -1,8 +1,13 @@
+name: build
+
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  release:
+    types:
+      - published
 
 
 jobs:
@@ -27,12 +32,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install -U pytest pytest-cov coveralls
+          python -m pip install -U pytest pytest-cov coveralls>=3.0.0
           sudo apt install libxml2-utils
 
       - name: Install
         run: |
-          python setup.py install
+          python -m pip install .
           test/schema/1685-2014/download_schema.sh
           test/schema/1685-2009/download_schema.sh
 
@@ -46,7 +51,24 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd test
-          coveralls
+          coveralls --service=github
+
+  finish_coveralls:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.x
+
+      - name: Coveralls
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COVERALLS_PARALLEL: true
+        run: |
+          python -m pip install -U coveralls>=3.0.0
+          coveralls --service=github --finish
 
 #-------------------------------------------------------------------------------
   lint:
@@ -119,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # Only publish when a GitHub Release is created.
-    if: github.event_name == 'release' && github.event.action == 'published'
+    if: github.event_name == 'release'
     steps:
       - uses: actions/download-artifact@v2
         with:
