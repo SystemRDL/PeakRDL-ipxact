@@ -3,7 +3,6 @@
 set -e
 
 this_dir="$( cd "$(dirname "$0")" ; pwd -P )"
-cd $this_dir/../
 
 # Initialize venv
 venv_bin=$this_dir/.venv/bin
@@ -37,7 +36,9 @@ $pytest --cov=peakrdl
 $coverage html -d $this_dir/htmlcov
 
 # Run lint
-$pylint --rcfile $this_dir/pylint.rc peakrdl | tee $this_dir/lint.rpt
+$pylint --rcfile $this_dir/pylint.rc ../peakrdl | tee $this_dir/lint.rpt
 
 # Run static type checking
 $mypy $this_dir/../peakrdl
+
+rm -f tmp*.xml

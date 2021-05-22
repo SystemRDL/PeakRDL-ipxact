@@ -223,10 +223,7 @@ class IPXACTImporter(RDLImporter):
             self.msg.fatal("addressBlock is missing required tag '%s'" % m, self.src_ref)
 
         # Create component instance
-        if d.get('usage', None) == "memory":
-            is_memory = True
-        else:
-            is_memory = False
+        is_memory = (d.get('usage', None) == "memory")
 
         if is_memory:
             C = self.instantiate_mem(
@@ -837,6 +834,6 @@ class IPXACTImporter(RDLImporter):
 #===============================================================================
 def get_text(el: minidom.Element) -> str:
     for child in el.childNodes:
-        if isinstance(child, minidom.Text):
+        if isinstance(child, minidom.Text): # type: ignore
             return child.data
     return ""
