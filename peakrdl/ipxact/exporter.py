@@ -57,6 +57,12 @@ class IPXACTExporter:
         if not isinstance(node, (AddrmapNode, MemNode)):
             raise TypeError("'node' argument expects type AddrmapNode or MemNode. Got '%s'" % type(node).__name__)
 
+        if isinstance(node, AddrmapNode) and node.get_property('bridge'):
+            self.msg.warning(
+                "IP-XACT generator does not have proper support for bridge addmaps yet. The 'bridge' property will be ignored.",
+                node.inst.property_src_ref.get('bridge', node.inst.inst_src_ref)
+            )
+
         # Initialize XML DOM
         self.doc = minidom.getDOMImplementation().createDocument(None, None, None)
 
