@@ -17,7 +17,7 @@ mypy=$venv_bin/mypy
 
 # Install test dependencies
 $python -m pip install -U pip setuptools
-$python -m pip install pytest pytest-cov coverage pylint mypy
+$python -m pip install -U pytest pytest-cov coverage pylint mypy
 
 # Install dut
 cd $this_dir/../

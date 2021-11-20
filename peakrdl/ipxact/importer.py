@@ -210,7 +210,7 @@ class IPXACTImporter(RDLImporter):
 
         d = self.flatten_element_values(addressBlock)
 
-        if 'usage' in d == "reserved":
+        if d.get('usage', None) == "reserved":
             # 1685-2014 6.9.4.2-a.1.iii: defines the entire range of the
             # addressBlock as reserved or for unknown usage to IP-XACT. This
             # type shall not contain registers.
@@ -582,6 +582,8 @@ class IPXACTImporter(RDLImporter):
                 - May have # or 0x prefix for hex
                 - May have K, M, G, or T multiplier suffix
         """
+        s = s.strip()
+
         multiplier = {
             "K": 1024,
             "M": 1024*1024,
@@ -653,8 +655,12 @@ class IPXACTImporter(RDLImporter):
         } # type: Dict[str, Any]
 
         for child in self.iterelements(el):
-            if child.localName in ("name", "displayName", "description", "usage"):
-                # Copy string types directly
+            if child.localName in ("name", "displayName", "usage"):
+                # Copy string types directly, but stripped
+                d[child.localName] = get_text(child).strip()
+
+            elif child.localName == "description":
+                # Copy description string types unmodified
                 d[child.localName] = get_text(child)
 
             elif child.localName in ("baseAddress", "addressOffset", "range", "width", "size", "bitOffset", "bitWidth"):
@@ -687,7 +693,7 @@ class IPXACTImporter(RDLImporter):
                     d['reset.mask'] = self.parse_integer(get_text(mask_el))
 
             elif child.localName == "access":
-                s = get_text(child)
+                s = get_text(child).strip()
                 sw = typemaps.sw_from_access(s)
                 if sw is None:
                     self.msg.error(
@@ -706,7 +712,7 @@ class IPXACTImporter(RDLImporter):
                     d['dim'] = [dim]
 
             elif child.localName == "readAction":
-                s = get_text(child)
+                s = get_text(child).strip()
                 onread = typemaps.onread_from_readaction(s)
                 if onread is None:
                     self.msg.error(
@@ -717,7 +723,7 @@ class IPXACTImporter(RDLImporter):
                     d['readAction'] = onread
 
             elif child.localName == "modifiedWriteValue":
-                s = get_text(child)
+                s = get_text(child).strip()
                 onwrite = typemaps.onwrite_from_mwv(s)
                 if onwrite is None:
                     self.msg.error(
@@ -750,7 +756,9 @@ class IPXACTImporter(RDLImporter):
             # Flatten element values
             d = {} # type: Dict[str, Any]
             for child in self.iterelements(enumeratedValue):
-                if child.localName in ("name", "displayName", "description"):
+                if child.localName in ("name", "displayName"):
+                    d[child.localName] = get_text(child).strip()
+                elif child.localName == "description":
                     d[child.localName] = get_text(child)
                 elif child.localName == "value":
                     d[child.localName] = self.parse_integer(get_text(child))
@@ -834,6 +842,6 @@ class IPXACTImporter(RDLImporter):
 #===============================================================================
 def get_text(el: minidom.Element) -> str:
     for child in el.childNodes:
-        if isinstance(child, minidom.Text): # type: ignore
+        if isinstance(child, minidom.Text):
             return child.data
     return ""
