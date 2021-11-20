@@ -152,7 +152,7 @@ class IPXACTExporter:
             self.add_addressBlock(mmap, node)
 
         # Write out XML dom
-        with open(path, "w") as f:
+        with open(path, "w", encoding='utf-8') as f:
             self.doc.writexml(
                 f,
                 addindent=self.xml_indent,
@@ -349,9 +349,9 @@ class IPXACTExporter:
         self.add_value(register, self.ns + "size", "%d" % node.get_property("regwidth"))
 
         if self._max_width is None:
-            self._max_width = max(node.get_property("accesswidth"), node.get_property("regwidth"))
+            self._max_width = node.get_property("regwidth")
         else:
-            self._max_width = max(node.get_property("accesswidth"), node.get_property("regwidth"), self._max_width)
+            self._max_width = max(node.get_property("regwidth"), self._max_width)
 
         # DNE: <spirit/ipxact:volatile>
         # DNE: <spirit/ipxact:access>
