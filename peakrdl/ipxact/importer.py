@@ -655,7 +655,15 @@ class IPXACTImporter(RDLImporter):
         } # type: Dict[str, Any]
 
         for child in self.iterelements(el):
-            if child.localName in ("name", "displayName", "usage"):
+            if child.localName == "name":
+                # Sanitize name
+                d[child.localName] = re.sub(
+                    r'[:\-.]',
+                    "_",
+                    get_text(child).strip()
+                )
+
+            elif child.localName in ("displayName", "usage"):
                 # Copy string types directly, but stripped
                 d[child.localName] = get_text(child).strip()
 
