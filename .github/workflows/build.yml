@@ -21,6 +21,7 @@ jobs:
           - 3.7
           - 3.8
           - 3.9
+          - "3.10"
 
     steps:
       - uses: actions/checkout@v2
@@ -47,8 +48,10 @@ jobs:
           pytest --cov=peakrdl
 
       - name: Coveralls
+        if: ${{ matrix.python-version != 3.5 }} # coveralls no longer works well on 3.5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COVERALLS_PARALLEL: true
         run: |
           cd test
           coveralls --service=github
