@@ -99,6 +99,7 @@ disable=
         abstract-method,
         protected-access,
         duplicate-code,
+        arguments-differ,
 
         # Can't do until py35 support is dropped
         consider-using-f-string
