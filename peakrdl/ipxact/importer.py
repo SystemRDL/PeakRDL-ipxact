@@ -1,4 +1,4 @@
-from typing import Optional, List, Iterable, Dict, Any, Type, Union
+from typing import Optional, List, Iterable, Dict, Any, Type, Union, Set
 import re
 
 from collections import OrderedDict
@@ -19,23 +19,25 @@ class IPXACTImporter(RDLImporter):
         self._current_regwidth = 32
         self._addressUnitBits = 8
         self._current_addressBlock_access = rdltypes.AccessType.rw
+        self.remap_states_seen = set() # type: Set[str]
 
     @property
     def src_ref(self) -> SourceRefBase:
         return self.default_src_ref
 
     #---------------------------------------------------------------------------
-    def import_file(self, path: str) -> None:
+    def import_file(self, path: str, remap_state: Optional[str] = None) -> None:
         super().import_file(path)
 
         # minidom does not provide file position data. Using a bare SourceRef
         # for everything created during this import
         self._current_regwidth = 32
         self._addressUnitBits = 8
+        self.remap_states_seen = set()
 
         dom = minidom.parse(path)
 
-        addressBlock_s = self.seek_to_top_addressBlocks(dom)
+        addressBlock_s = self.seek_to_top_addressBlocks(dom, remap_state)
 
         # Parse all the addressBlock elements found
         addrmap_or_mems = []
@@ -102,7 +104,7 @@ class IPXACTImporter(RDLImporter):
         self.register_root_component(top_component)
 
     #---------------------------------------------------------------------------
-    def seek_to_top_addressBlocks(self, dom: minidom.Element) -> List[minidom.Element]:
+    def seek_to_top_addressBlocks(self, dom: minidom.Element, remap_state: Optional[str]) -> List[minidom.Element]:
         """
         IP-XACT files can be a little ambiguous depending on who they come from
         This function returns the most reasonable starting point to use
@@ -157,25 +159,60 @@ class IPXACTImporter(RDLImporter):
         # Find the first <memoryMap> that has at least one <addressBlock>
         for mm in memoryMap_s:
             addressBlock_s = self.get_children_by_tag(mm, self.ns+":addressBlock")
+            addressBlock_s += self.get_remapped_address_blocks(mm, remap_state)
             if addressBlock_s:
-                aub = self.get_first_child_by_tag(mm, self.ns+":addressUnitBits")
-                if aub:
-                    self._addressUnitBits = self.parse_integer(get_text(aub))
-
-                    if (self._addressUnitBits < 8) or (self._addressUnitBits % 8 != 0):
-                        self.msg.fatal(
-                            "Importer only supports <addressUnitBits> that is a multiple of 8",
-                            self.src_ref
-                        )
-
+                parent_memoryMap = mm
                 break
         else:
-            self.msg.fatal(
-                "No valid 'memoryMap' found",
+            self.msg.error(
+                "Could not find any 'memoryMap' elements that contained an importable register space",
                 self.src_ref
             )
 
+            if self.remap_states_seen:
+                self.msg.warning(
+                    "Contains the following possible memory remap states: \n\t%s\n"
+                    "Try selecting a remap state, as it may uncover state-specific address regions."
+                    % "\n\t".join(self.remap_states_seen),
+                    self.src_ref
+                )
+
+            self.msg.fatal(
+                "Import failed",
+                self.src_ref
+            )
+
+
+        aub = self.get_first_child_by_tag(parent_memoryMap, self.ns+":addressUnitBits")
+        if aub:
+            self._addressUnitBits = self.parse_integer(get_text(aub))
+
+            if (self._addressUnitBits < 8) or (self._addressUnitBits % 8 != 0):
+                self.msg.fatal(
+                    "Importer only supports <addressUnitBits> that is a multiple of 8",
+                    self.src_ref
+                )
+
+
         return addressBlock_s
+
+    #---------------------------------------------------------------------------
+    def get_remapped_address_blocks(self, memoryMap: minidom.Element, remap_state: Optional[str]) -> List[minidom.Element]:
+        """
+        A memoryMap can also contain one or more addressBlocks that are wrapped in a memoryRemap tag.
+        These provide alternate views into the address space depending on the state of the device.
+        This function returns a list of addressBlock elements that match the remap state
+        """
+        memoryRemaps = self.get_children_by_tag(memoryMap, self.ns+":memoryRemap")
+        addressBlocks = []
+
+        for memoryRemap in memoryRemaps:
+            this_remapState = memoryRemap.getAttribute(self.ns+":state")
+            self.remap_states_seen.add(this_remapState)
+            if this_remapState == remap_state:
+                remap_addressBlocks = self.get_children_by_tag(memoryRemap, self.ns+":addressBlock")
+                addressBlocks.extend(remap_addressBlocks)
+        return addressBlocks
 
     #---------------------------------------------------------------------------
     def parse_addressBlock(self, addressBlock: minidom.Element) -> Union[comp.Addrmap, comp.Mem]:

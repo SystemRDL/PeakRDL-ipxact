@@ -106,3 +106,5 @@ Perform the import!
 
 * `path`
     * Input IP-XACT file.
+* `remap_state`
+    * Optional remapState string that is used to select memoryRemap regions
