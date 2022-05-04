@@ -16,7 +16,6 @@ class IPXACTImporter(RDLImporter):
     def __init__(self, compiler: RDLCompiler):
         super().__init__(compiler)
         self.ns = None # type: str
-        self._current_regwidth = 32
         self._addressUnitBits = 8
         self._current_addressBlock_access = rdltypes.AccessType.rw
         self.remap_states_seen = set() # type: Set[str]
@@ -29,9 +28,6 @@ class IPXACTImporter(RDLImporter):
     def import_file(self, path: str, remap_state: Optional[str] = None) -> None:
         super().import_file(path)
 
-        # minidom does not provide file position data. Using a bare SourceRef
-        # for everything created during this import
-        self._current_regwidth = 32
         self._addressUnitBits = 8
         self.remap_states_seen = set()
 
@@ -283,7 +279,6 @@ class IPXACTImporter(RDLImporter):
         if 'isPresent' in d:
             self.assign_property(C, "ispresent", d['isPresent'])
 
-        self._current_regwidth = d['width']
         if is_memory:
             self.assign_property(C, "memwidth", d['width'])
             self.assign_property(
@@ -446,6 +441,12 @@ class IPXACTImporter(RDLImporter):
         missing = required - set(d.keys())
         for m in missing:
             self.msg.fatal("register is missing required tag '%s'" % m, self.src_ref)
+
+        # IP-XACT allows registers to be any arbitrary bit width, but SystemRDL
+        # requires the register size to be at least 8, and a power of 2.
+        # Pad up the register size if needed
+        d['size'] = max(8, d['size'])
+        d['size'] = roundup_pow2(d['size'])
 
         # Create component instance
         if 'dim' in d:
@@ -890,3 +891,6 @@ def get_text(el: minidom.Element) -> str:
         if isinstance(child, minidom.Text):
             return child.data
     return ""
+
+def roundup_pow2(x: int) -> int:
+    return 1<<(x-1).bit_length()
