@@ -3,6 +3,7 @@ import unittest
 import subprocess
 import logging
 import filecmp
+import pytest
 
 from systemrdl import RDLCompiler
 from systemrdl.messages import MessagePrinter
@@ -20,6 +21,13 @@ class TestPrinter(MessagePrinter):
 
 class IPXACTTestCase(unittest.TestCase):
 
+    #: this gets auto-loaded via the _load_request autouse fixture
+    request = None # type: pytest.FixtureRequest
+
+    @pytest.fixture(autouse=True)
+    def _load_request(self, request):
+        self.request = request
+
     def compile(self, files, top_name=None):
         rdlc = RDLCompiler(
             message_printer=TestPrinter()
@@ -32,22 +40,21 @@ class IPXACTTestCase(unittest.TestCase):
             elif file.endswith(".xml"):
                 ipxact.import_file(file)
         return rdlc.elaborate(top_name)
-    
+
+
     def export(self, node, file, std):
         ipxact = IPXACTExporter(standard=std)
         ipxact.export(node, file)
 
-    def compare(self, file1, file2):
 
+    def compare(self, file1, file2):
         self.assertTrue(filecmp.cmp(
             file1,
             file2
         ), "file compare failed: '%s' != '%s'" % (file1, file2))
-    
-    def validate_xsd(self, file, xsd):
 
-        file = file
-        xsd = xsd
+
+    def validate_xsd(self, file, xsd):
         cmd = ["xmllint", "--noout", "--schema", xsd, file]
 
         passed = True
@@ -60,10 +67,11 @@ class IPXACTTestCase(unittest.TestCase):
         except subprocess.CalledProcessError as e:
             passed = False
             stderr = e.output.decode("utf-8")
-        
+
         if not passed:
             raise AssertionError("XML Validate failed: %s" % stderr)
-    
+
+
     def get_schema_path(self, std):
         this_dir = os.path.dirname(os.path.realpath(__file__))
         if std == Standard.IEEE_1685_2014:

@@ -33,98 +33,11 @@ class IPXACTImporter(RDLImporter):
 
         dom = minidom.parse(path)
 
-        addressBlock_s = self.seek_to_top_addressBlocks(dom, remap_state)
-
-        # Parse all the addressBlock elements found
-        addrmap_or_mems = []
-        for addressBlock in addressBlock_s:
-            addrmap_or_mem = self.parse_addressBlock(addressBlock)
-            if addrmap_or_mem is not None:
-                addrmap_or_mems.append(addrmap_or_mem)
-
-        if not addrmap_or_mems:
-            self.msg.fatal(
-                "'memoryMap' must contain at least one 'addressBlock' element",
-                self.src_ref
-            )
-
-        if (len(addrmap_or_mems) == 1) and (addrmap_or_mems[0].addr_offset == 0):
-            # OK to drop the hierarchy implied by the enclosing memoryMap
-            # since it is only a wrapper around a single addressBlock at base
-            # offset 0
-            # This addressBlock will be the top component that is registered
-            # in $root
-            top_component = addrmap_or_mems[0]
-
-            #  de-instantiate the addrmap
-            top_component.type_name = top_component.inst_name
-            top_component.is_instance = False
-            top_component.inst_name = None
-            top_component.original_def = None
-            top_component.external = None
-            top_component.inst_src_ref = None
-            top_component.addr_offset = None
-
-        else:
-            # memoryMap encloses multiple addressBlock components, or the single
-            # one uses a meaningful address offset.
-            # In order to preserve this information, encapsulate them in a
-            # top-level parent that is named after the memoryMap
-
-            # Get the top-level memoryMap's element values
-            d = self.flatten_element_values(addressBlock_s[0].parentNode)
-
-            # Check for required name
-            if 'name' not in d:
-                self.msg.fatal("memoryMap is missing required tag 'name'", self.src_ref)
-
-            # Create component instance to represent the memoryMap
-            C = comp.Addrmap()
-            C.def_src_ref = self.src_ref
-
-            # Collect properties and other values
-            C.type_name = d['name']
-
-            if 'displayName' in d:
-                self.assign_property(C, "name", d['displayName'])
-
-            if 'description' in d:
-                self.assign_property(C, "desc", d['description'])
-
-            # Insert all the addrmap_or_mems as children
-            C.children = addrmap_or_mems
-
-            top_component = C
-
-        # register it with the root namespace
-        self.register_root_component(top_component)
+        for memoryMap in self.get_all_memoryMap(dom):
+            self.import_memoryMap(memoryMap, remap_state)
 
     #---------------------------------------------------------------------------
-    def seek_to_top_addressBlocks(self, dom: minidom.Element, remap_state: Optional[str]) -> List[minidom.Element]:
-        """
-        IP-XACT files can be a little ambiguous depending on who they come from
-        This function returns the most reasonable starting point to use
-        as the top-level node for import.
-
-        Returns a list of addressBlock elements
-
-        If:
-            - There is exactly one memoryMap
-            - Inside it, a single addressBlock
-        Then the addressBlock is the top-level node
-        (will actually return a list with only one addressBlock)
-
-        If:
-            - There is exactly one memoryMap
-            - Inside it, more than one addressBlock that has meaningful contents
-                "meaningful" is having a name, base address, and at least one
-                child
-        Then the memoryMap is the top-level node
-        (will actually return a list of remaining meaningful addressBlocks)
-
-        If there is more than one memoryMap, use the first one that contains
-        an addressBlock child
-        """
+    def get_all_memoryMap(self, dom: minidom.Element) -> List[minidom.Element]:
 
         # Find <component> and determine namespace prefix
         c_ipxact = self.get_first_child_by_tag(dom, "ipxact:component")
@@ -152,45 +65,7 @@ class IPXACTImporter(RDLImporter):
         # Find all <memoryMap>
         memoryMap_s = self.get_children_by_tag(memoryMaps, self.ns+":memoryMap")
 
-        # Find the first <memoryMap> that has at least one <addressBlock>
-        for mm in memoryMap_s:
-            addressBlock_s = self.get_children_by_tag(mm, self.ns+":addressBlock")
-            addressBlock_s += self.get_remapped_address_blocks(mm, remap_state)
-            if addressBlock_s:
-                parent_memoryMap = mm
-                break
-        else:
-            self.msg.error(
-                "Could not find any 'memoryMap' elements that contained an importable register space",
-                self.src_ref
-            )
-
-            if self.remap_states_seen:
-                self.msg.warning(
-                    "Contains the following possible memory remap states: \n\t%s\n"
-                    "Try selecting a remap state, as it may uncover state-specific address regions."
-                    % "\n\t".join(self.remap_states_seen),
-                    self.src_ref
-                )
-
-            self.msg.fatal(
-                "Import failed",
-                self.src_ref
-            )
-
-
-        aub = self.get_first_child_by_tag(parent_memoryMap, self.ns+":addressUnitBits")
-        if aub:
-            self._addressUnitBits = self.parse_integer(get_text(aub))
-
-            if (self._addressUnitBits < 8) or (self._addressUnitBits % 8 != 0):
-                self.msg.fatal(
-                    "Importer only supports <addressUnitBits> that is a multiple of 8",
-                    self.src_ref
-                )
-
-
-        return addressBlock_s
+        return memoryMap_s
 
     #---------------------------------------------------------------------------
     def get_remapped_address_blocks(self, memoryMap: minidom.Element, remap_state: Optional[str]) -> List[minidom.Element]:
@@ -211,7 +86,86 @@ class IPXACTImporter(RDLImporter):
         return addressBlocks
 
     #---------------------------------------------------------------------------
-    def parse_addressBlock(self, addressBlock: minidom.Element) -> Union[comp.Addrmap, comp.Mem]:
+    def import_memoryMap(self, memoryMap: minidom.Element, remap_state: Optional[str]) -> None:
+        # Schema:
+        #     {nameGroup}
+        #         name (required) --> inst_name
+        #         displayName --> prop:name
+        #         description --> prop:desc
+        #     isPresent --> prop:ispresent
+        #     addressBlock --> children
+        #     memoryRemap
+        #         addressBlock --> children
+        #     addressUnitBits
+        #     shared
+        #     vendorExtensions
+
+        d = self.flatten_element_values(memoryMap)
+
+        # Check for required values
+        required = {'name'}
+        missing = required - set(d.keys())
+        for m in missing:
+            self.msg.fatal("memoryMap is missing required tag '%s'" % m, self.src_ref)
+
+        # Create named component definition
+        C_def = self.create_addrmap_definition(d['name'])
+
+        # Collect properties and other values
+        if 'displayName' in d:
+            self.assign_property(C_def, "name", d['displayName'])
+
+        if 'description' in d:
+            self.assign_property(C_def, "desc", d['description'])
+
+        if 'isPresent' in d:
+            self.assign_property(C_def, "ispresent", d['isPresent'])
+
+        aub = self.get_first_child_by_tag(memoryMap, self.ns+":addressUnitBits")
+        if aub:
+            self._addressUnitBits = self.parse_integer(get_text(aub))
+
+            if (self._addressUnitBits < 8) or (self._addressUnitBits % 8 != 0):
+                self.msg.fatal(
+                    "Importer only supports <addressUnitBits> that is a multiple of 8",
+                    self.src_ref
+                )
+        else:
+            self._addressUnitBits = 8
+
+        # collect children
+        self.remap_states_seen = set()
+        addressBlocks = self.get_children_by_tag(memoryMap, self.ns+":addressBlock")
+        addressBlocks.extend(self.get_remapped_address_blocks(memoryMap, remap_state))
+        for addressBlock in addressBlocks:
+            child = self.parse_addressBlock(addressBlock, d['name'])
+            if child:
+                self.add_child(C_def, child)
+
+        if 'vendorExtensions' in d:
+            C_def = self.memoryMap_vendorExtensions(d['vendorExtensions'], C_def)
+
+        if not C_def.children:
+            # memoryMap contains no addressBlocks. Skip
+            self.msg.warning(
+                "Discarding memoryMap '%s' because it does not contain any child addressBlocks"
+                % (d['name']),
+                self.src_ref
+            )
+
+            if self.remap_states_seen:
+                self.msg.warning(
+                    "memoryMap '%s' contains the following possible memory remap states: \n\t%s\n"
+                    "Try selecting a remap state, as it may uncover state-specific address regions."
+                    % (d['name'], "\n\t".join(self.remap_states_seen)),
+                    self.src_ref
+                )
+            return
+
+        self.register_root_component(C_def)
+
+    #---------------------------------------------------------------------------
+    def parse_addressBlock(self, addressBlock: minidom.Element, parent_mmap_name:str) -> Optional[Union[comp.Addrmap, comp.Mem]]:
         """
         Parses an addressBlock and returns an instantiated addrmap or mem
         component.
@@ -255,39 +209,33 @@ class IPXACTImporter(RDLImporter):
         for m in missing:
             self.msg.fatal("addressBlock is missing required tag '%s'" % m, self.src_ref)
 
-        # Create component instance
+        # Create named component definition
         is_memory = (d.get('usage', None) == "memory")
-
+        type_name = parent_mmap_name + "__" + d['name']
         if is_memory:
-            C = self.instantiate_mem(
-                self.create_mem_definition(),
-                d['name'], self.AU_to_bytes(d['baseAddress'])
-            )
+            C_def = self.create_mem_definition(type_name)
         else:
-            C = self.instantiate_addrmap(
-                self.create_addrmap_definition(),
-                d['name'], self.AU_to_bytes(d['baseAddress'])
-            )
+            C_def = self.create_addrmap_definition(type_name)
 
         # Collect properties and other values
         if 'displayName' in d:
-            self.assign_property(C, "name", d['displayName'])
+            self.assign_property(C_def, "name", d['displayName'])
 
         if 'description' in d:
-            self.assign_property(C, "desc", d['description'])
+            self.assign_property(C_def, "desc", d['description'])
 
         if 'isPresent' in d:
-            self.assign_property(C, "ispresent", d['isPresent'])
+            self.assign_property(C_def, "ispresent", d['isPresent'])
 
         if is_memory:
-            self.assign_property(C, "memwidth", d['width'])
+            self.assign_property(C_def, "memwidth", d['width'])
             self.assign_property(
-                C, "mementries",
+                C_def, "mementries",
                 (d['range'] * self._addressUnitBits) // (d['width'])
             )
 
             if 'access' in d:
-                self.assign_property(C, "sw", d['access'])
+                self.assign_property(C_def, "sw", d['access'])
 
         if 'access' in d:
             self._current_addressBlock_access = d['access']
@@ -299,11 +247,11 @@ class IPXACTImporter(RDLImporter):
             if child_el.localName == "register":
                 R = self.parse_register(child_el)
                 if R:
-                    self.add_child(C, R)
+                    self.add_child(C_def, R)
             elif child_el.localName == "registerFile" and not is_memory:
                 R = self.parse_registerFile(child_el)
                 if R:
-                    self.add_child(C, R)
+                    self.add_child(C_def, R)
             else:
                 self.msg.error(
                     "Invalid child element <%s> found in <%s:addressBlock>"
@@ -312,16 +260,38 @@ class IPXACTImporter(RDLImporter):
                 )
 
         if 'vendorExtensions' in d:
-            C = self.addressBlock_vendorExtensions(d['vendorExtensions'], C)
+            C_def = self.addressBlock_vendorExtensions(d['vendorExtensions'], C_def)
 
-        if not is_memory and not C.children:
-            # If a register addressBlock has no children, skip it
+
+        if not is_memory and not C_def.children:
+            # If an addressBlock has no children, skip it
+            self.msg.warning(
+                "Discarding addressBlock '%s' because it does not contain any children"
+                % (d['name']),
+                self.src_ref
+            )
             return None
+
+        # All addressBlocks get registered under the root namespace
+        self.register_root_component(C_def)
+
+        # Also convert to an instance, since this will be instantiated into the
+        # wrapper that represents the memoryMap
+        if is_memory:
+            C = self.instantiate_mem(
+                C_def,
+                d['name'], self.AU_to_bytes(d['baseAddress'])
+            )
+        else:
+            C = self.instantiate_addrmap(
+                C_def,
+                d['name'], self.AU_to_bytes(d['baseAddress'])
+            )
 
         return C
 
     #---------------------------------------------------------------------------
-    def parse_registerFile(self, registerFile: minidom.Element) -> comp.Regfile:
+    def parse_registerFile(self, registerFile: minidom.Element) -> Optional[comp.Regfile]:
         """
         Parses an registerFile and returns an instantiated regfile component
         """
@@ -407,7 +377,7 @@ class IPXACTImporter(RDLImporter):
         return C
 
     #---------------------------------------------------------------------------
-    def parse_register(self, register: minidom.Element) -> comp.Reg:
+    def parse_register(self, register: minidom.Element) -> Optional[comp.Reg]:
         """
         Parses a register and returns an instantiated reg component
         """
@@ -507,7 +477,7 @@ class IPXACTImporter(RDLImporter):
         return C
 
     #---------------------------------------------------------------------------
-    def parse_field(self, field: minidom.Element, reg_access: rdltypes.AccessType, reg_reset_value: Optional[int], reg_reset_mask: Optional[int]) -> comp.Field:
+    def parse_field(self, field: minidom.Element, reg_access: rdltypes.AccessType, reg_reset_value: Optional[int], reg_reset_mask: Optional[int]) -> Optional[comp.Field]:
         """
         Parses an field and returns an instantiated field component
         """
@@ -869,6 +839,10 @@ class IPXACTImporter(RDLImporter):
         return byte_units
 
     #---------------------------------------------------------------------------
+    def memoryMap_vendorExtensions(self, vendorExtensions: minidom.Element, component: comp.Component) -> comp.Component:
+        #pylint: disable=unused-argument
+        return component
+
     def addressBlock_vendorExtensions(self, vendorExtensions: minidom.Element, component: comp.Component) -> comp.Component:
         #pylint: disable=unused-argument
         return component

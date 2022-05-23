@@ -1,42 +1,34 @@
 import os
-import filecmp
-import tempfile
 
 from peakrdl.ipxact.exporter import Standard
 
 from .unittest_utils import IPXACTTestCase
 
 class TestImportExport(IPXACTTestCase):
-    
-    def symmetry_check(self, sources, std):
-        this_dir = os.path.dirname(os.path.realpath(__file__))
 
+    def symmetry_check(self, sources, std):
         root = self.compile(sources)
-        
-        t1 = tempfile.NamedTemporaryFile(delete=False, dir=this_dir, suffix=".xml")
-        t1.close()
-        t2 = tempfile.NamedTemporaryFile(delete=False, dir=this_dir, suffix=".xml")
-        t2.close()
+
+        export1_path = "%s-x1.xml" % self.request.node.name
+        export2_path = "%s-x2.xml" % self.request.node.name
 
         with self.subTest("export 1"):
-            self.export(root, t1.name, std)
+            self.export(root, export1_path, std)
 
         with self.subTest("validate xsd 1"):
-            self.validate_xsd(t1.name, self.get_schema_path(std))
+            self.validate_xsd(export1_path, self.get_schema_path(std))
 
         with self.subTest("import"):
-            root2 = self.compile(
-                [t1.name]
-            )
+            root2 = self.compile([export1_path])
 
         with self.subTest("export 2"):
-            self.export(root2, t2.name, std)
+            self.export(root2, export2_path, std)
 
         with self.subTest("validate xsd 2"):
-            self.validate_xsd(t2.name, self.get_schema_path(std))
+            self.validate_xsd(export2_path, self.get_schema_path(std))
 
         with self.subTest("symmetry check"):
-            self.compare(t1.name, t2.name)
+            self.compare(export1_path, export2_path)
 
 
 
