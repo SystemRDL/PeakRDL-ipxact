@@ -28,6 +28,7 @@ class IPXACTExporter:
         self.vendor = kwargs.pop("vendor", "example.org")
         self.library = kwargs.pop("library", "mylibrary")
         self.version = kwargs.pop("version", "1.0")
+        self.component_name = kwargs.pop("component_name", None)
         self.standard = kwargs.pop("standard", Standard.IEEE_1685_2014)
         self.xml_indent = kwargs.pop("xml_indent", "  ")
         self.xml_newline = kwargs.pop("xml_newline", "\n")
@@ -87,7 +88,7 @@ class IPXACTExporter:
         # versionedIdentifier Block
         self.add_value(comp, self.ns + "vendor", self.vendor)
         self.add_value(comp, self.ns + "library", self.library)
-        self.add_value(comp, self.ns + "name", node.inst_name)
+        self.add_value(comp, self.ns + "name", self.component_name or node.inst_name)
         self.add_value(comp, self.ns + "version", self.version)
 
         mmaps = self.doc.createElement(self.ns + "memoryMaps")
@@ -145,7 +146,7 @@ class IPXACTExporter:
 
             # Wrap it in a dummy memoryMap that bears it's name
             mmap = self.doc.createElement(self.ns + "memoryMap")
-            self.add_nameGroup(mmap, "%s_mmap" % node.inst_name)
+            self.add_nameGroup(mmap, node.inst_name)
             mmaps.appendChild(mmap)
 
             # Export top-level node as a single addressBlock
