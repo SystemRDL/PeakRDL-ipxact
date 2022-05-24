@@ -12,23 +12,44 @@ if TYPE_CHECKING:
     from systemrdl.messages import MessageHandler
 
 class Standard(enum.IntEnum):
-    SPIRIT_1_0 = 1.0
-    SPIRIT_1_1 = 1.1
-    SPIRIT_1_2 = 1.2
-    SPIRIT_1_4 = 1.4
-    SPIRIT_1_5 = 1.5
+    """
+    Enumeration of IP-XACT standards
+    """
+
+    #: Spirit IP-XACT - IEEE Std. 1685-2009
     IEEE_1685_2009 = 2009
+
+    #: IP-XACT - IEEE Std. 1685-2014
     IEEE_1685_2014 = 2014
 
 #===============================================================================
 class IPXACTExporter:
     def __init__(self, **kwargs: Any) -> None:
+        """
+        Constructor for the exporter object.
+
+        Parameters
+        ----------
+        vendor: str
+            Vendor url string. Defaults to "example.org"
+        library: str
+            library name string. Defaults to "mylibrary"
+        version: str
+            Version string. Defaults to "1.0"
+        standard: :class:`Standard`
+            IP-XACT Standard to use. Currently supports IEEE 1685-2009 and
+            IEEE 1685-2014 (default)
+        xml_indent: str
+            String to use for each indent level. Defaults to 2 spaces.
+        xml_newline: str
+            String to use for line breaks. Defaults to a newline (``\\n``).
+        """
+
         self.msg = None # type: MessageHandler
 
         self.vendor = kwargs.pop("vendor", "example.org")
         self.library = kwargs.pop("library", "mylibrary")
         self.version = kwargs.pop("version", "1.0")
-        self.component_name = kwargs.pop("component_name", None)
         self.standard = kwargs.pop("standard", Standard.IEEE_1685_2014)
         self.xml_indent = kwargs.pop("xml_indent", "  ")
         self.xml_newline = kwargs.pop("xml_newline", "\n")
@@ -39,17 +60,32 @@ class IPXACTExporter:
         if kwargs:
             raise TypeError("got an unexpected keyword argument '%s'" % list(kwargs.keys())[0])
 
-        if self.standard < Standard.IEEE_1685_2009:
-            raise ValueError("Older SPIRIT standards are not supported yet")
-
         if self.standard >= Standard.IEEE_1685_2014:
             self.ns = "ipxact:"
         else:
             self.ns = "spirit:"
 
     #---------------------------------------------------------------------------
-    def export(self, node: Union[AddrmapNode, RootNode], path: str) -> None:
+    def export(self, node: Union[AddrmapNode, RootNode], path: str, **kwargs: Any) -> None:
+        """
+        Parameters
+        ----------
+        node: AddrmapNode
+            Top-level SystemRDL node to export.
+        path:
+            Path to save the exported XML file.
+        component_name: str
+            IP-XACT component name. If unspecified, uses the top node's name
+            upon export.
+        """
+
         self.msg = node.env.msg
+
+        component_name = kwargs.pop("component_name", None)
+
+        # Check for stray kwargs
+        if kwargs:
+            raise TypeError("got an unexpected keyword argument '%s'" % list(kwargs.keys())[0])
 
         # If it is the root node, skip to top addrmap
         if isinstance(node, RootNode):
@@ -88,7 +124,7 @@ class IPXACTExporter:
         # versionedIdentifier Block
         self.add_value(comp, self.ns + "vendor", self.vendor)
         self.add_value(comp, self.ns + "library", self.library)
-        self.add_value(comp, self.ns + "name", self.component_name or node.inst_name)
+        self.add_value(comp, self.ns + "name", component_name or node.inst_name)
         self.add_value(comp, self.ns + "version", self.version)
 
         mmaps = self.doc.createElement(self.ns + "memoryMaps")

@@ -14,6 +14,13 @@ from . import typemaps
 class IPXACTImporter(RDLImporter):
 
     def __init__(self, compiler: RDLCompiler):
+        """
+        Parameters
+        ----------
+        compiler:
+            Reference to ``RDLCompiler`` instance to bind the importer to.
+        """
+
         super().__init__(compiler)
         self.ns = None # type: str
         self._addressUnitBits = 8
@@ -26,6 +33,18 @@ class IPXACTImporter(RDLImporter):
 
     #---------------------------------------------------------------------------
     def import_file(self, path: str, remap_state: Optional[str] = None) -> None:
+        """
+        Import a single SPIRIT or IP-XACT file into the SystemRDL namespace.
+
+        Parameters
+        ----------
+        path:
+            Input SPIRIT or IP-XACT XML file.
+        remap_state:
+            Optional remapState string that is used to select memoryRemap regions
+            that are tagged under a specific remap state.
+        """
+
         super().import_file(path)
 
         self._addressUnitBits = 8
