@@ -31,6 +31,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Upgrade setuptools
+        if: ${{ matrix.python-version == 3.5 }}
+        run: |
+          python -m pip install -U setuptools
+
       - name: Install dependencies
         run: |
           python -m pip install -U pytest pytest-cov coveralls>=3.0.0
