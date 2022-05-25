@@ -5,7 +5,7 @@ with open("README.md", "r", encoding='utf-8') as fh:
     long_description = fh.read()
 
 
-with open(os.path.join("peakrdl/ipxact", "__about__.py"), encoding='utf-8') as f:
+with open(os.path.join("src/peakrdl/ipxact", "__about__.py"), encoding='utf-8') as f:
     v_dict = {}
     exec(f.read(), v_dict)
     version = v_dict['__version__']
@@ -19,7 +19,8 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/SystemRDL/PeakRDL-ipxact",
-    packages=['peakrdl.ipxact'],
+    package_dir={'': 'src'},
+    packages=setuptools.find_namespace_packages("src", include=['peakrdl.*']),
     include_package_data=True,
     python_requires='>=3.5.2',
     install_requires=[

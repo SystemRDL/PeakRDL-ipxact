@@ -36,9 +36,9 @@ $pytest --cov=peakrdl
 $coverage html -d $this_dir/htmlcov
 
 # Run lint
-$pylint --rcfile $this_dir/pylint.rc ../peakrdl | tee $this_dir/lint.rpt
+$pylint --rcfile $this_dir/pylint.rc ../src/peakrdl | tee $this_dir/lint.rpt
 
 # Run static type checking
-$mypy $this_dir/../peakrdl
+$mypy $this_dir/../src/peakrdl
 
 rm -f tmp*.xml

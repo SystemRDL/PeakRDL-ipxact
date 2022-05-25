@@ -1,8 +1,9 @@
 [run]
+#relative_files = True
 
 [paths]
 source =
-    ../peakrdl/
+    ../src/peakrdl/
     */site-packages/*/peakrdl
     */site-packages/peakrdl
 
