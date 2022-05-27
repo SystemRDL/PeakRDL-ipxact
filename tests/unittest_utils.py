@@ -44,7 +44,7 @@ class IPXACTTestCase(unittest.TestCase):
 
     def export(self, node, file, std):
         ipxact = IPXACTExporter(standard=std)
-        ipxact.export(node, file)
+        ipxact.export(node, file, component_name="my_thing")
 
 
     def compare(self, file1, file2):

@@ -81,7 +81,7 @@ class IPXACTExporter:
 
         self.msg = node.env.msg
 
-        component_name = kwargs.pop("component_name", None)
+        component_name = kwargs.pop("component_name", node.inst_name)
 
         # Check for stray kwargs
         if kwargs:
@@ -124,7 +124,7 @@ class IPXACTExporter:
         # versionedIdentifier Block
         self.add_value(comp, self.ns + "vendor", self.vendor)
         self.add_value(comp, self.ns + "library", self.library)
-        self.add_value(comp, self.ns + "name", component_name or node.inst_name)
+        self.add_value(comp, self.ns + "name", component_name)
         self.add_value(comp, self.ns + "version", self.version)
 
         mmaps = self.doc.createElement(self.ns + "memoryMaps")
@@ -182,7 +182,7 @@ class IPXACTExporter:
 
             # Wrap it in a dummy memoryMap that bears it's name
             mmap = self.doc.createElement(self.ns + "memoryMap")
-            self.add_nameGroup(mmap, node.inst_name)
+            self.add_nameGroup(mmap, "%s_mmap" % node.inst_name)
             mmaps.appendChild(mmap)
 
             # Export top-level node as a single addressBlock
