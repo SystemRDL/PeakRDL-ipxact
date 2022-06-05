@@ -1,6 +1,6 @@
 [![Documentation Status](https://readthedocs.org/projects/peakrdl-ipxact/badge/?version=latest)](http://peakrdl-ipxact.readthedocs.io)
-[![build](https://github.com/SystemRDL/PeakRDL-ipxact/workflows/build/badge.svg)](https://github.com/SystemRDL/PeakRDL-ipxact/actions?query=workflow%3Abuild+branch%3Amaster)
-[![Coverage Status](https://coveralls.io/repos/github/SystemRDL/PeakRDL-ipxact/badge.svg?branch=master)](https://coveralls.io/github/SystemRDL/PeakRDL-ipxact?branch=master)
+[![build](https://github.com/SystemRDL/PeakRDL-ipxact/workflows/build/badge.svg)](https://github.com/SystemRDL/PeakRDL-ipxact/actions?query=workflow%3Abuild+branch%3Amain)
+[![Coverage Status](https://coveralls.io/repos/github/SystemRDL/PeakRDL-ipxact/badge.svg?branch=main)](https://coveralls.io/github/SystemRDL/PeakRDL-ipxact?branch=main)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/peakrdl-ipxact.svg)](https://pypi.org/project/peakrdl-ipxact)
 
 # PeakRDL-ipxact

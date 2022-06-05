@@ -43,7 +43,7 @@ setuptools.setup(
         "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
     ),
     project_urls={
-        #"Documentation": "TBD",
+        "Documentation": "https://peakrdl-ipxact.readthedocs.io",
         "Source": "https://github.com/SystemRDL/PeakRDL-ipxact",
         "Tracker": "https://github.com/SystemRDL/PeakRDL-ipxact/issues",
     },
