@@ -33,7 +33,7 @@ into IP-XACT.
 
     import sys
     from systemrdl import RDLCompiler, RDLCompileError
-    from peakrdl.ipxact import IPXACTExporter, Standard
+    from peakrdl_ipxact import IPXACTExporter, Standard
 
     rdlc = RDLCompiler()
 
@@ -61,7 +61,7 @@ register model.
 
     import sys
     from systemrdl import RDLCompiler, RDLCompileError
-    from peakrdl.ipxact import IPXACTImporter
+    from peakrdl_ipxact import IPXACTImporter
 
     rdlc = RDLCompiler()
     ipxact = IPXACTImporter(rdlc)

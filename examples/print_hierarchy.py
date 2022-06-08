@@ -5,7 +5,7 @@ import os
 
 from systemrdl import RDLCompiler, RDLListener, RDLWalker, RDLCompileError
 from systemrdl.node import FieldNode
-from peakrdl.ipxact import IPXACTImporter
+from peakrdl_ipxact import IPXACTImporter
 
 # Collect input files from the command line arguments
 input_files = sys.argv[1:]

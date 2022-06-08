@@ -1,6 +1,6 @@
 import os
 
-from peakrdl.ipxact.exporter import Standard
+from peakrdl_ipxact.exporter import Standard
 
 from .unittest_utils import IPXACTTestCase
 

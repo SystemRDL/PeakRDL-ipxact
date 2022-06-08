@@ -30,15 +30,15 @@ $this_dir/schema/1685-2014/download_schema.sh
 $this_dir/schema/1685-2009/download_schema.sh
 
 # Run unit tests while collecting coverage
-$pytest --cov=peakrdl
+$pytest --cov=peakrdl_ipxact
 
 # Generate coverage report
 $coverage html -d $this_dir/htmlcov
 
 # Run lint
-$pylint --rcfile $this_dir/pylint.rc ../src/peakrdl | tee $this_dir/lint.rpt
+$pylint --rcfile $this_dir/pylint.rc ../src/peakrdl_ipxact | tee $this_dir/lint.rpt
 
 # Run static type checking
-$mypy $this_dir/../src/peakrdl
+$mypy $this_dir/../src/peakrdl_ipxact
 
 rm -f tmp*.xml

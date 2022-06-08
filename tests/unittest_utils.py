@@ -7,8 +7,8 @@ import pytest
 
 from systemrdl import RDLCompiler
 from systemrdl.messages import MessagePrinter
-from peakrdl.ipxact import IPXACTImporter, IPXACTExporter
-from peakrdl.ipxact.exporter import Standard
+from peakrdl_ipxact import IPXACTImporter, IPXACTExporter
+from peakrdl_ipxact.exporter import Standard
 
 #===============================================================================
 class TestPrinter(MessagePrinter):

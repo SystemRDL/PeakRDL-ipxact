@@ -51,7 +51,7 @@ jobs:
       - name: Test
         run: |
           cd tests
-          pytest --cov=peakrdl
+          pytest --cov=peakrdl_ipxact
 
       - name: Coveralls
         if: ${{ matrix.python-version != 3.5 }} # coveralls no longer works well on 3.5
@@ -99,7 +99,7 @@ jobs:
 
       - name: Run Lint
         run: |
-          pylint --rcfile tests/pylint.rc peakrdl
+          pylint --rcfile tests/pylint.rc peakrdl_ipxact
 
 #-------------------------------------------------------------------------------
   mypy:
@@ -117,7 +117,7 @@ jobs:
 
       - name: Type Check
         run: |
-          mypy --config-file tests/mypy.ini src/peakrdl
+          mypy --config-file tests/mypy.ini src/peakrdl_ipxact
 
 #-------------------------------------------------------------------------------
   build_sdist:

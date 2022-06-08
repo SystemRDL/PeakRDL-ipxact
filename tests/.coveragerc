@@ -3,9 +3,9 @@
 
 [paths]
 source =
-    ../src/peakrdl/
-    */site-packages/*/peakrdl
-    */site-packages/peakrdl
+    ../src/peakrdl_ipxact/
+    */site-packages/*/peakrdl_ipxact
+    */site-packages/peakrdl_ipxact
 
 [report]
 exclude_lines =

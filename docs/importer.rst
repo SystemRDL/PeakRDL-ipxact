@@ -128,6 +128,6 @@ in order to show otherwise hidden <addressBlock> elements.
 API
 ---
 
-.. autoclass:: peakrdl.ipxact.IPXACTImporter
+.. autoclass:: peakrdl_ipxact.IPXACTImporter
     :special-members: __init__
     :members: import_file

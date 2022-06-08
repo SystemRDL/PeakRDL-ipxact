@@ -30,9 +30,9 @@ into IP-XACT.
 API
 ---
 
-.. autoclass:: peakrdl.ipxact.IPXACTExporter
+.. autoclass:: peakrdl_ipxact.IPXACTExporter
     :special-members: __init__
     :members: export
 
-.. autoclass:: peakrdl.ipxact.Standard
+.. autoclass:: peakrdl_ipxact.Standard
     :members:

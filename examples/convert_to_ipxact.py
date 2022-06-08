@@ -2,7 +2,7 @@
 
 import sys
 from systemrdl import RDLCompiler, RDLCompileError
-from peakrdl.ipxact import IPXACTExporter
+from peakrdl_ipxact import IPXACTExporter
 
 # Collect input files from the command line arguments
 input_files = sys.argv[1:]
@@ -14,7 +14,7 @@ try:
     # Compile all the files provided
     for input_file in input_files:
         rdlc.compile_file(input_file)
-    
+
     # Elaborate the design
     root = rdlc.elaborate()
 except RDLCompileError:
