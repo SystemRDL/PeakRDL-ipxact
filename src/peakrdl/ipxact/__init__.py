@@ -1,6 +1,6 @@
-# Load modules
 import warnings
 
+# Load modules
 from peakrdl_ipxact import __about__
 from peakrdl_ipxact import exporter
 from peakrdl_ipxact import importer

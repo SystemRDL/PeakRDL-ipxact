@@ -47,12 +47,12 @@ class IPXACTExporter:
 
         self.msg = None # type: MessageHandler
 
-        self.vendor = kwargs.pop("vendor", "example.org")
-        self.library = kwargs.pop("library", "mylibrary")
-        self.version = kwargs.pop("version", "1.0")
-        self.standard = kwargs.pop("standard", Standard.IEEE_1685_2014)
-        self.xml_indent = kwargs.pop("xml_indent", "  ")
-        self.xml_newline = kwargs.pop("xml_newline", "\n")
+        self.vendor = kwargs.pop("vendor", None) or "example.org"
+        self.library = kwargs.pop("library", None) or "mylibrary"
+        self.version = kwargs.pop("version", None) or "1.0"
+        self.standard = kwargs.pop("standard", None) or Standard.IEEE_1685_2014
+        self.xml_indent = kwargs.pop("xml_indent", None) or "  "
+        self.xml_newline = kwargs.pop("xml_newline", None) or "\n"
         self.doc = None # type: minidom.Document
         self._max_width = None # type: Optional[int]
 
@@ -81,7 +81,7 @@ class IPXACTExporter:
 
         self.msg = node.env.msg
 
-        component_name = kwargs.pop("component_name", node.inst_name)
+        component_name = kwargs.pop("component_name", None) or node.inst_name
 
         # Check for stray kwargs
         if kwargs:

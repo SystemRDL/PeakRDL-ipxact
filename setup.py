@@ -29,6 +29,14 @@ setuptools.setup(
     install_requires=[
         "systemrdl-compiler>=1.16.0",
     ],
+    entry_points = {
+        "peakrdl.exporters": [
+            'ip-xact = peakrdl_ipxact.__peakrdl__:Exporter'
+        ],
+        "peakrdl.importers": [
+            'ip-xact = peakrdl_ipxact.__peakrdl__:Importer'
+        ]
+    },
     classifiers=(
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python",
