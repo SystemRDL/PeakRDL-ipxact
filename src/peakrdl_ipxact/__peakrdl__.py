@@ -80,7 +80,7 @@ class Importer:
             help="Optional remapState string that is used to select memoryRemap regions that are tagged under a specific remap state."
         )
 
-    def do_import(self, rdlc: 'RDLCompiler', options: 'argparse.Namespace', path: str):
+    def do_import(self, rdlc: 'RDLCompiler', options: 'argparse.Namespace', path: str) -> None:
         i = IPXACTImporter(rdlc)
         i.import_file(
             path,
