@@ -4,10 +4,12 @@
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/peakrdl-ipxact.svg)](https://pypi.org/project/peakrdl-ipxact)
 
 # PeakRDL-ipxact
-This package implements IP-XACT import and export for the PeakRDL toolchain
+This package implements IP-XACT import and export for the PeakRDL toolchain.
 
 - **Export:** Convert compiled SystemRDL input into IP-XACT XML
 - **Import:** Read an IP-XACT file and import it into the `systemrdl-compiler` namespace
+
+For the command line tool, see the [PeakRDL project](https://peakrdl.readthedocs.io).
 
 ## Documentation
 See the [PeakRDL-ipxact Documentation](http://peakrdl-ipxact.readthedocs.io) for more details
