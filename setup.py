@@ -27,7 +27,7 @@ setuptools.setup(
     include_package_data=True,
     python_requires='>=3.5.2',
     install_requires=[
-        "systemrdl-compiler>=1.16.0",
+        "systemrdl-compiler>=1.24.0",
     ],
     entry_points = {
         "peakrdl.exporters": [

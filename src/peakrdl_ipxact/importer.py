@@ -1,7 +1,6 @@
 from typing import Optional, List, Iterable, Dict, Any, Type, Union, Set
 import re
 
-from collections import OrderedDict
 from xml.dom import minidom
 
 from systemrdl import RDLCompiler, RDLImporter
@@ -838,7 +837,7 @@ class IPXACTImporter(RDLImporter):
         """
         Parses an enumeration listing and returns the user-defined enum type
         """
-        entries = OrderedDict()
+        members = []
         for enumeratedValue in self.iterelements(enumeratedValues):
             if enumeratedValue.localName != "enumeratedValue":
                 continue
@@ -868,9 +867,12 @@ class IPXACTImporter(RDLImporter):
             displayname = d.get('displayName', None)
             desc = d.get('description', None)
 
-            entries[entry_name] = (entry_value, displayname, desc)
+            member = rdltypes.UserEnumMemberContainer(
+                entry_name, entry_value, displayname, desc
+            )
+            members.append(member)
 
-        enum_type = rdltypes.UserEnum(type_name, entries) #pylint: disable=no-value-for-parameter
+        enum_type = rdltypes.UserEnum.define_new(type_name, members)
 
         return enum_type
 
