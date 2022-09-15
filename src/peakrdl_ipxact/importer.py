@@ -838,6 +838,8 @@ class IPXACTImporter(RDLImporter):
         Parses an enumeration listing and returns the user-defined enum type
         """
         members = []
+        values = []
+        member_names = []
         for enumeratedValue in self.iterelements(enumeratedValues):
             if enumeratedValue.localName != "enumeratedValue":
                 continue
@@ -866,6 +868,24 @@ class IPXACTImporter(RDLImporter):
             entry_value = d['value']
             displayname = d.get('displayName', None)
             desc = d.get('description', None)
+
+            if entry_value in values:
+                self.msg.warning(
+                    "Discarding enum member '%s' since its value '%d' is already defined"
+                    % (entry_name, entry_value),
+                    self.src_ref
+                )
+                continue
+            values.append(entry_value)
+
+            if entry_name in member_names:
+                self.msg.warning(
+                    "Discarding enum member '%s' since it was already defined"
+                    % entry_name,
+                    self.src_ref
+                )
+                continue
+            member_names.append(entry_name)
 
             member = rdltypes.UserEnumMemberContainer(
                 entry_name, entry_value, displayname, desc
