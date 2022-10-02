@@ -79,10 +79,22 @@ class Importer:
             default=None,
             help="Optional remapState string that is used to select memoryRemap regions that are tagged under a specific remap state."
         )
+        arg_group.add_argument(
+            "--use-ablock-prefix",
+            action="store_true",
+            help="Prefix types with the addressBlock name."
+        )
+        arg_group.add_argument(
+            "--use-component-name",
+            action="store_true",
+            help="For single memoryMap designs, use the comonent name instead of the memoryMap name."
+        )
 
     def do_import(self, rdlc: 'RDLCompiler', options: 'argparse.Namespace', path: str) -> None:
         i = IPXACTImporter(rdlc)
         i.import_file(
             path,
-            remap_state=options.remap_state
+            remap_state=options.remap_state,
+            use_ablock_prefix=options.use_ablock_prefix,
+            use_component_name=options.use_component_name
         )

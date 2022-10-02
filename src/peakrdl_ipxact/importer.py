@@ -31,7 +31,7 @@ class IPXACTImporter(RDLImporter):
         return self.default_src_ref
 
 
-    def import_file(self, path: str, remap_state: Optional[str] = None) -> None:
+    def import_file(self, path: str, remap_state: Optional[str] = None, use_ablock_prefix: bool = False, use_component_name: bool = False) -> None:
         """
         Import a single SPIRIT or IP-XACT file into the SystemRDL namespace.
 
@@ -42,6 +42,10 @@ class IPXACTImporter(RDLImporter):
         remap_state:
             Optional remapState string that is used to select memoryRemap regions
             that are tagged under a specific remap state.
+        use_ablock_prefix:
+            Prefix types with the addressBlock name
+        use_component_name:
+            For single memoryMap designs, use the comonent name instead of the memoryMap name
         """
         super().import_file(path)
 
@@ -61,13 +65,18 @@ class IPXACTImporter(RDLImporter):
             # Occasionally, some documents will use the same name for the memoryMap
             # and addressBlock.
             # If this happens, add a suffix to the mmap name to prevent the import collision
-            mmap_name = self.get_sanitized_element_name(memoryMaps[0])
+
+            # Optionally, use the component name instead of the memory map name
+            if use_component_name:
+                mmap_name = self.get_sanitized_element_name(component)
+            else:
+                mmap_name = self.get_sanitized_element_name(memoryMaps[0])
             for addressBlock in self.get_all_address_blocks(memoryMaps[0], remap_state):
                 ablock_name = self.get_sanitized_element_name(addressBlock)
                 if mmap_name == ablock_name:
                     mmap_name += "_mmap"
 
-            self.import_memoryMap(memoryMaps[0], remap_state, override_mmap_name=mmap_name)
+            self.import_memoryMap(memoryMaps[0], remap_state, override_mmap_name=mmap_name, use_ablock_prefix=use_ablock_prefix)
         else:
             for memoryMap in memoryMaps:
                 self.import_memoryMap(memoryMap, remap_state, use_ablock_prefix=True)
