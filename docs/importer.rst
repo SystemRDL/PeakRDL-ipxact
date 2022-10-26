@@ -27,9 +27,10 @@ possible.
         - <memoryMap>
         - A named ``addrmap`` definition is created.
 
-          The definition's type name is defined by the memoryMap's <name>.
-          In some cases, an ``_mmap`` suffix may be appended to the type name
-          if a child addressBlock's imported type name happens to be the same.
+          The definition's type name is defined by the concatenation of the
+          parent component's <name> and memoryMap's <name>.
+
+          For example: ``ComponentName__MemoryMapName``
 
           The named definition is imported into the root SystemRDL namespace.
 
@@ -39,11 +40,11 @@ possible.
           ``mem`` component is declared.
           Otherwise, a named ``addrmap`` is declared.
 
-          The definition's type name is defined by the addressBlock's <name>.
+          The definition's type name is defined by the concatenation of the
+          enclosing component's <name>, the parent memoryMap's <name> and
+          the addressBlock's <name>.
 
-          If the document contains multiple memoryMap elements, the type name is
-          the combination of the parent memoryMap's <name> and this addressBlock's
-          <name>, separated by two underscores: ``<memoryMap_name>__<addressBlock_name>``
+          For example: ``ComponentName__MemoryMapName__AddressBlockName``
 
           The named definition is imported into the root SystemRDL namespace.
 

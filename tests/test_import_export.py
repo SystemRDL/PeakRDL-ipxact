@@ -4,32 +4,30 @@ from peakrdl_ipxact.exporter import Standard
 
 from .unittest_utils import IPXACTTestCase
 
+from systemrdl.node import RegNode, FieldNode, MemNode
+
 class TestImportExport(IPXACTTestCase):
 
     def symmetry_check(self, sources, std):
-        root = self.compile(sources)
+        a = self.compile(sources)
 
-        export1_path = "%s-x1.xml" % self.request.node.name
-        export2_path = "%s-x2.xml" % self.request.node.name
+        xml_path = "%s.xml" % self.request.node.name
 
-        with self.subTest("export 1"):
-            self.export(root, export1_path, std)
+        with self.subTest("export"):
+            self.export(a, xml_path, std)
 
-        with self.subTest("validate xsd 1"):
-            self.validate_xsd(export1_path, self.get_schema_path(std))
+        with self.subTest("validate xsd"):
+            self.validate_xsd(xml_path, self.get_schema_path(std))
 
         with self.subTest("import"):
-            root2 = self.compile([export1_path])
+            b = self.compile([xml_path])
 
-        with self.subTest("export 2"):
-            self.export(root2, export2_path, std)
-
-        with self.subTest("validate xsd 2"):
-            self.validate_xsd(export2_path, self.get_schema_path(std))
-
-        with self.subTest("symmetry check"):
-            self.compare(export1_path, export2_path)
-
+        # Compare equivalent
+        a_nodes = [node for node in a.descendants(unroll=True, skip_not_present=False) if isinstance(node, (RegNode, FieldNode, MemNode))]
+        b_nodes = [node for node in b.descendants(unroll=True, skip_not_present=False) if isinstance(node, (RegNode, FieldNode, MemNode))]
+        self.assertEqual(len(a_nodes), len(b_nodes))
+        for node_a, node_b in zip(a_nodes, b_nodes):
+            self.compare_nodes(node_a, node_b)
 
 
     def test_generic_example_2014(self):

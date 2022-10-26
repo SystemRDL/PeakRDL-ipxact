@@ -56,8 +56,7 @@ class IPXACTImporter(RDLImporter):
 
         for memoryMap in memoryMaps:
             comp_name = self.get_sanitized_element_name(component)
-            mmap_name = self.get_sanitized_element_name(memoryMap)
-            self.import_memoryMap(memoryMap, remap_state, override_mmap_name=f"{comp_name}__{mmap_name}", use_ablock_prefix=True)
+            self.import_memoryMap(memoryMap, comp_name, remap_state)
 
 
     def get_component(self, dom: minidom.Element) -> minidom.Element:
@@ -115,7 +114,7 @@ class IPXACTImporter(RDLImporter):
         return addressBlocks
 
 
-    def import_memoryMap(self, memoryMap: minidom.Element, remap_state: Optional[str], override_mmap_name:Optional[str] = None, use_ablock_prefix:bool = False) -> None:
+    def import_memoryMap(self, memoryMap: minidom.Element, component_name: str, remap_state: Optional[str]) -> None:
         # Schema:
         #     {nameGroup}
         #         name (required) --> inst_name
@@ -131,14 +130,14 @@ class IPXACTImporter(RDLImporter):
 
         d = self.flatten_element_values(memoryMap)
 
-        if override_mmap_name:
-            name = override_mmap_name
-        else:
-            name = self.get_sanitized_element_name(memoryMap)
 
         # Check for required values
+        name = self.get_sanitized_element_name(memoryMap)
         if not name:
             self.msg.fatal("memoryMap is missing required tag 'name'", self.src_ref)
+
+        # Add component prefix to name
+        name = "%s__%s" % (component_name, name)
 
         # Create named component definition
         C_def = self.create_addrmap_definition(name)
@@ -165,12 +164,9 @@ class IPXACTImporter(RDLImporter):
         else:
             self._addressUnitBits = 8
 
-        if use_ablock_prefix:
-            name_prefix = name + "__"
-        else:
-            name_prefix = ""
 
         # collect children
+        name_prefix = name + "__"
         self.remap_states_seen = set()
         addressBlocks = self.get_all_address_blocks(memoryMap, remap_state)
         for addressBlock in addressBlocks:

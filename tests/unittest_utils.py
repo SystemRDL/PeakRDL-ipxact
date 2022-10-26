@@ -2,11 +2,11 @@ import os
 import unittest
 import subprocess
 import logging
-import filecmp
 import pytest
 
 from systemrdl import RDLCompiler
 from systemrdl.messages import MessagePrinter
+from systemrdl.node import Node, RegNode, FieldNode, MemNode
 from peakrdl_ipxact import IPXACTImporter, IPXACTExporter
 from peakrdl_ipxact.exporter import Standard
 
@@ -39,20 +39,32 @@ class IPXACTTestCase(unittest.TestCase):
                 rdlc.compile_file(file)
             elif file.endswith(".xml"):
                 ipxact.import_file(file)
-        return rdlc.elaborate(top_name)
+        return rdlc.elaborate(top_name, "top")
 
+    def compare_nodes(self, a: Node, b: Node):
+        self.assertEqual(a.inst_name, b.inst_name)
+        self.assertEqual(type(a), type(b))
+
+        if isinstance(a, RegNode):
+            self.assertEqual(a.absolute_address, b.absolute_address)
+        if isinstance(a, FieldNode):
+            self.assertEqual(a.lsb, b.lsb)
+            self.assertEqual(a.msb, b.msb)
+
+        props = set(a.list_properties() + b.list_properties())
+        # Only check a subset of properties
+        check_props = {
+            'name', 'desc', 'regwidth', 'sw', 'reset', 'onread', 'memwidth', 'mementries'
+        }
+        for prop in props:
+            if prop not in check_props:
+                continue
+            print(prop, a, b)
+            self.assertEqual(a.get_property(prop), b.get_property(prop))
 
     def export(self, node, file, std):
         ipxact = IPXACTExporter(standard=std)
         ipxact.export(node, file, component_name="my_thing")
-
-
-    def compare(self, file1, file2):
-        self.assertTrue(filecmp.cmp(
-            file1,
-            file2
-        ), "file compare failed: '%s' != '%s'" % (file1, file2))
-
 
     def validate_xsd(self, file, xsd):
         cmd = ["xmllint", "--noout", "--schema", xsd, file]
