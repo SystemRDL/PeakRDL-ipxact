@@ -5,7 +5,7 @@ cd $this_dir
 
 base=http://www.accellera.org/XMLSchema/IPXACT/1685-2014
 
-wget -nc -nv \
+wget -nc -nv --tries=5 \
     ${base}/abstractionDefinition.xsd \
     ${base}/abstractor.xsd \
     ${base}/autoConfigure.xsd \

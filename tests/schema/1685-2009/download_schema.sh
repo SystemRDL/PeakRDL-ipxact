@@ -5,7 +5,7 @@ cd $this_dir
 
 base=http://www.spiritconsortium.org/XMLSchema/SPIRIT/1685-2009
 
-wget -nc -nv \
+wget -nc -nv --tries=5 \
     ${base}/abstractionDefinition.xsd \
     ${base}/abstractor.xsd \
     ${base}/autoConfigure.xsd \

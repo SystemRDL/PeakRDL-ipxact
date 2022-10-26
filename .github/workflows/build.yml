@@ -40,9 +40,14 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install -U pytest pytest-cov coveralls>=3.0.0
+          python -m pip install -U pytest
           sudo apt update
           sudo apt install libxml2-utils
+
+      - name: Install coverage tools
+        if: ${{ matrix.python-version == 3.10 }}
+        run: |
+          python -m pip install pytest-cov coverage>=6.3
 
       - name: Install
         run: |
@@ -51,35 +56,23 @@ jobs:
           tests/schema/1685-2009/download_schema.sh
 
       - name: Test
+        if: ${{ matrix.python-version != 3.10 }}
         run: |
           cd tests
-          pytest --cov=peakrdl_ipxact
+          pytest
+
+      - name: Test with Coverage
+        if: ${{ matrix.python-version == 3.10 }}
+        run: |
+          cd tests
+          pytest --cov=peakrdl_ipxact --cov-report lcov:cov.info
 
       - name: Coveralls
-        if: ${{ matrix.python-version != 3.5 }} # coveralls no longer works well on 3.5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERALLS_PARALLEL: true
-        run: |
-          cd tests
-          coveralls --service=github
-
-  finish_coveralls:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Setup Python
-        uses: actions/setup-python@v2
+        if: ${{ matrix.python-version == 3.10 }}
+        uses: coverallsapp/github-action@master
         with:
-          python-version: 3.x
-
-      - name: Coveralls
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERALLS_PARALLEL: true
-        run: |
-          python -m pip install -U coveralls>=3.0.0
-          coveralls --service=github --finish
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: tests/cov.info
 
 #-------------------------------------------------------------------------------
   lint:
