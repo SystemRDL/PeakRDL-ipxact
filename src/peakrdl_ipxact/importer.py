@@ -53,24 +53,11 @@ class IPXACTImporter(RDLImporter):
         component = self.get_component(dom)
 
         memoryMaps = self.get_all_memoryMap(component)
-        if len(memoryMaps) == 1:
-            # Only one memory map in this component
-            # Use simplified import naming scheme, preserving original memoryMap
-            # and addressBlock names as much as possible.
 
-            # Occasionally, some documents will use the same name for the memoryMap
-            # and addressBlock.
-            # If this happens, add a suffix to the mmap name to prevent the import collision
-            mmap_name = self.get_sanitized_element_name(memoryMaps[0])
-            for addressBlock in self.get_all_address_blocks(memoryMaps[0], remap_state):
-                ablock_name = self.get_sanitized_element_name(addressBlock)
-                if mmap_name == ablock_name:
-                    mmap_name += "_mmap"
-
-            self.import_memoryMap(memoryMaps[0], remap_state, override_mmap_name=mmap_name)
-        else:
-            for memoryMap in memoryMaps:
-                self.import_memoryMap(memoryMap, remap_state, use_ablock_prefix=True)
+        for memoryMap in memoryMaps:
+            comp_name = self.get_sanitized_element_name(component)
+            mmap_name = self.get_sanitized_element_name(memoryMap)
+            self.import_memoryMap(memoryMap, remap_state, override_mmap_name=f"{comp_name}__{mmap_name}", use_ablock_prefix=True)
 
 
     def get_component(self, dom: minidom.Element) -> minidom.Element:
