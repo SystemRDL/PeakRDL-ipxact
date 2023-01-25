@@ -3,7 +3,7 @@ Introduction
 
 This package implements IP-XACT import and export functionality for the PeakRDL
 toolchain. This involves the ability to translate between a SystemRDL register
-model and `Accelera's IP-XACT <https://www.accellera.org/downloads/standards/ip-xact>`_
+model and `Accellera's IP-XACT <https://www.accellera.org/downloads/standards/ip-xact>`_
 data exchange document format.
 
 

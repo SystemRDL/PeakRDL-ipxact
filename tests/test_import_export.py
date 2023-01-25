@@ -34,7 +34,7 @@ class TestImportExport(IPXACTTestCase):
         this_dir = os.path.dirname(os.path.realpath(__file__))
         self.symmetry_check(
             [
-                os.path.join(this_dir, "test_sources/accelera-generic_example.rdl")
+                os.path.join(this_dir, "test_sources/accellera-generic_example.rdl")
             ],
             Standard.IEEE_1685_2014
         )
@@ -44,7 +44,7 @@ class TestImportExport(IPXACTTestCase):
         this_dir = os.path.dirname(os.path.realpath(__file__))
         self.symmetry_check(
             [
-                os.path.join(this_dir, "test_sources/accelera-generic_example.rdl")
+                os.path.join(this_dir, "test_sources/accellera-generic_example.rdl")
             ],
             Standard.IEEE_1685_2009
         )
@@ -54,7 +54,7 @@ class TestImportExport(IPXACTTestCase):
         this_dir = os.path.dirname(os.path.realpath(__file__))
         self.symmetry_check(
             [
-                os.path.join(this_dir, "test_sources/accelera-generic_example.rdl"),
+                os.path.join(this_dir, "test_sources/accellera-generic_example.rdl"),
                 os.path.join(this_dir, "test_sources/nested.rdl")
             ],
             Standard.IEEE_1685_2014
@@ -65,7 +65,7 @@ class TestImportExport(IPXACTTestCase):
         this_dir = os.path.dirname(os.path.realpath(__file__))
         self.symmetry_check(
             [
-                os.path.join(this_dir, "test_sources/accelera-generic_example.rdl"),
+                os.path.join(this_dir, "test_sources/accellera-generic_example.rdl"),
                 os.path.join(this_dir, "test_sources/nested.rdl")
             ],
             Standard.IEEE_1685_2009
