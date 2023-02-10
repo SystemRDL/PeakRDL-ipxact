@@ -1,7 +1,7 @@
 from typing import Optional, List, Iterable, Dict, Any, Type, Union, Set
 import re
 
-from xml.dom import minidom
+from xml.etree import ElementTree
 
 from systemrdl import RDLCompiler, RDLImporter
 from systemrdl import rdltypes
@@ -9,6 +9,11 @@ from systemrdl.messages import SourceRefBase
 from systemrdl import component as comp
 
 from . import typemaps
+
+
+# Expected IP-XACT namespaces. This parser is not strict about the exact version.
+IPXACT_NAMESPACE_PREFIX = "http://www.accellera.org/XMLSchema/IPXACT/"
+SPIRIT_NAMESPACE_PREFIX = "http://www.spiritconsortium.org/XMLSchema/SPIRIT/"
 
 class IPXACTImporter(RDLImporter):
 
@@ -48,9 +53,9 @@ class IPXACTImporter(RDLImporter):
         self._addressUnitBits = 8
         self.remap_states_seen = set()
 
-        dom = minidom.parse(path)
+        tree = ElementTree.parse(path)
 
-        component = self.get_component(dom)
+        component = self.get_component(tree)
 
         memoryMaps = self.get_all_memoryMap(component)
 
@@ -59,27 +64,29 @@ class IPXACTImporter(RDLImporter):
             self.import_memoryMap(memoryMap, comp_name, remap_state)
 
 
-    def get_component(self, dom: minidom.Element) -> minidom.Element:
+    def get_component(self, tree: ElementTree.ElementTree) -> ElementTree.Element:
         # Find <component> and determine namespace prefix
-        c_ipxact = self.get_first_child_by_tag(dom, "ipxact:component")
-        c_spirit = self.get_first_child_by_tag(dom, "spirit:component")
-        if c_ipxact is not None:
-            component = c_ipxact
-        elif c_spirit is not None:
-            component = c_spirit
+        root = tree.getroot()
+        if get_local_name(root) == "component":
+            component = root
+            namespace = get_namespace(root)
+            if IPXACT_NAMESPACE_PREFIX in namespace:
+                self.ns = namespace
+            elif SPIRIT_NAMESPACE_PREFIX in namespace:
+                self.ns = namespace
+            else:
+                self.msg.fatal("Could not find a known ip-xact namespace")
         else:
             self.msg.fatal(
                 "Could not find a 'component' element",
                 self.src_ref
             )
-        self.ns = component.prefix
-
         return component
 
 
-    def get_all_memoryMap(self, component: minidom.Element) -> List[minidom.Element]:
+    def get_all_memoryMap(self, component: ElementTree.Element) -> List[ElementTree.Element]:
         # Find <memoryMaps>
-        memoryMaps_s = self.get_children_by_tag(component, self.ns+":memoryMaps")
+        memoryMaps_s = self.get_children_by_tag(component, self.ns+"memoryMaps")
         if len(memoryMaps_s) != 1:
             self.msg.fatal(
                 "'component' must contain exactly one 'memoryMaps' element",
@@ -88,12 +95,12 @@ class IPXACTImporter(RDLImporter):
         memoryMaps = memoryMaps_s[0]
 
         # Find all <memoryMap>
-        memoryMap_s = self.get_children_by_tag(memoryMaps, self.ns+":memoryMap")
+        memoryMap_s = self.get_children_by_tag(memoryMaps, self.ns+"memoryMap")
 
         return memoryMap_s
 
 
-    def get_all_address_blocks(self, memoryMap: minidom.Element, remap_state: Optional[str]) -> List[minidom.Element]:
+    def get_all_address_blocks(self, memoryMap: ElementTree.Element, remap_state: Optional[str]) -> List[ElementTree.Element]:
         """
         Gets all the addressBlock elements within a memoryMap
 
@@ -101,20 +108,20 @@ class IPXACTImporter(RDLImporter):
         These provide alternate views into the address space depending on the state of the device.
         This function also returns any addressBlock elements that match the remap state
         """
-        addressBlocks = self.get_children_by_tag(memoryMap, self.ns+":addressBlock")
+        addressBlocks = self.get_children_by_tag(memoryMap, self.ns+"addressBlock")
 
-        memoryRemaps = self.get_children_by_tag(memoryMap, self.ns+":memoryRemap")
+        memoryRemaps = self.get_children_by_tag(memoryMap, self.ns+"memoryRemap")
         for memoryRemap in memoryRemaps:
-            this_remapState = memoryRemap.getAttribute(self.ns+":state")
+            this_remapState = memoryRemap.get(self.ns+"state")
             self.remap_states_seen.add(this_remapState)
             if this_remapState == remap_state:
-                remap_addressBlocks = self.get_children_by_tag(memoryRemap, self.ns+":addressBlock")
+                remap_addressBlocks = self.get_children_by_tag(memoryRemap, self.ns+"addressBlock")
                 addressBlocks.extend(remap_addressBlocks)
 
         return addressBlocks
 
 
-    def import_memoryMap(self, memoryMap: minidom.Element, component_name: str, remap_state: Optional[str]) -> None:
+    def import_memoryMap(self, memoryMap: ElementTree.Element, component_name: str, remap_state: Optional[str]) -> None:
         # Schema:
         #     {nameGroup}
         #         name (required) --> inst_name
@@ -152,8 +159,8 @@ class IPXACTImporter(RDLImporter):
         if 'isPresent' in d:
             self.assign_property(C_def, "ispresent", d['isPresent'])
 
-        aub = self.get_first_child_by_tag(memoryMap, self.ns+":addressUnitBits")
-        if aub:
+        aub = self.get_first_child_by_tag(memoryMap, self.ns+"addressUnitBits")
+        if aub is not None:
             self._addressUnitBits = self.parse_integer(get_text(aub))
 
             if (self._addressUnitBits < 8) or (self._addressUnitBits % 8 != 0):
@@ -197,7 +204,7 @@ class IPXACTImporter(RDLImporter):
         self.register_root_component(C_def)
 
 
-    def parse_addressBlock(self, addressBlock: minidom.Element, name_prefix:str) -> Optional[Union[comp.Addrmap, comp.Mem]]:
+    def parse_addressBlock(self, addressBlock: ElementTree.Element, name_prefix:str) -> Optional[Union[comp.Addrmap, comp.Mem]]:
         """
         Parses an addressBlock and returns an instantiated addrmap or mem
         component.
@@ -279,18 +286,19 @@ class IPXACTImporter(RDLImporter):
 
         # collect children
         for child_el in d['child_els']:
-            if child_el.localName == "register":
+            local_name = get_local_name(child_el)
+            if local_name == "register":
                 R = self.parse_register(child_el)
                 if R:
                     self.add_child(C_def, R)
-            elif child_el.localName == "registerFile" and not is_memory:
+            elif local_name == "registerFile" and not is_memory:
                 R = self.parse_registerFile(child_el)
                 if R:
                     self.add_child(C_def, R)
             else:
                 self.msg.error(
                     "Invalid child element <%s> found in <%s:addressBlock>"
-                    % (child_el.tagName, self.ns),
+                    % (child_el.tag, self.ns),
                     self.src_ref
                 )
 
@@ -326,7 +334,7 @@ class IPXACTImporter(RDLImporter):
         return C
 
 
-    def parse_registerFile(self, registerFile: minidom.Element) -> Optional[comp.Regfile]:
+    def parse_registerFile(self, registerFile: ElementTree.Element) -> Optional[comp.Regfile]:
         """
         Parses an registerFile and returns an instantiated regfile component
         """
@@ -385,18 +393,19 @@ class IPXACTImporter(RDLImporter):
 
         # collect children
         for child_el in d['child_els']:
-            if child_el.localName == "register":
+            local_name = get_local_name(child_el)
+            if local_name == "register":
                 R = self.parse_register(child_el)
                 if R:
                     self.add_child(C, R)
-            elif child_el.localName == "registerFile":
+            elif local_name == "registerFile":
                 R = self.parse_registerFile(child_el)
                 if R:
                     self.add_child(C, R)
             else:
                 self.msg.error(
                     "Invalid child element <%s> found in <%s:registerFile>"
-                    % (child_el.tagName, self.ns),
+                    % (child_el.tag, self.ns),
                     self.src_ref
                 )
 
@@ -415,7 +424,7 @@ class IPXACTImporter(RDLImporter):
         return C
 
 
-    def parse_register(self, register: minidom.Element) -> Optional[comp.Reg]:
+    def parse_register(self, register: ElementTree.Element) -> Optional[comp.Reg]:
         """
         Parses a register and returns an instantiated reg component
         """
@@ -492,14 +501,15 @@ class IPXACTImporter(RDLImporter):
 
         # collect children
         for child_el in d['child_els']:
-            if child_el.localName == "field":
+            local_name = get_local_name(child_el)
+            if local_name == "field":
                 field = self.parse_field(child_el, reg_access, reg_reset_value, reg_reset_mask)
                 if field is not None:
                     self.add_child(C, field)
             else:
                 self.msg.error(
                     "Invalid child element <%s> found in <%s:register>"
-                    % (child_el.tagName, self.ns),
+                    % (child_el.tag, self.ns),
                     self.src_ref
                 )
 
@@ -518,7 +528,7 @@ class IPXACTImporter(RDLImporter):
         return C
 
 
-    def parse_field(self, field: minidom.Element, reg_access: rdltypes.AccessType, reg_reset_value: Optional[int], reg_reset_mask: Optional[int]) -> Optional[comp.Field]:
+    def parse_field(self, field: ElementTree.Element, reg_access: rdltypes.AccessType, reg_reset_value: Optional[int], reg_reset_mask: Optional[int]) -> Optional[comp.Field]:
         """
         Parses an field and returns an instantiated field component
         """
@@ -691,7 +701,7 @@ class IPXACTImporter(RDLImporter):
             raise ValueError("Unable to parse boolean value '%s'" % s)
 
 
-    def get_sanitized_element_name(self, el: minidom.Element) -> Optional[str]:
+    def get_sanitized_element_name(self, el: ElementTree.Element) -> Optional[str]:
         """
         Extracts the text from the <name> child of the given element.
 
@@ -699,9 +709,9 @@ class IPXACTImporter(RDLImporter):
 
         Returns None if not found
         """
-        name_el = self.get_first_child_by_tag(el, self.ns+":name")
+        name_el = self.get_first_child_by_tag(el, self.ns+"name")
 
-        if not name_el:
+        if name_el is None:
             return None
 
         return re.sub(
@@ -711,7 +721,7 @@ class IPXACTImporter(RDLImporter):
         )
 
 
-    def flatten_element_values(self, el: minidom.Element) -> Dict[str, Any]:
+    def flatten_element_values(self, el: ElementTree.Element) -> Dict[str, Any]:
         """
         Given any of the IP-XACT RAL component elements, flatten the
         key/value tags into a dictionary.
@@ -727,55 +737,56 @@ class IPXACTImporter(RDLImporter):
         } # type: Dict[str, Any]
 
         for child in self.iterelements(el):
-            if child.localName in ("displayName", "usage"):
+            local_name = get_local_name(child)
+            if local_name in ("displayName", "usage"):
                 # Copy string types directly, but stripped
-                d[child.localName] = get_text(child).strip()
+                d[local_name] = get_text(child).strip()
 
-            elif child.localName == "description":
+            elif local_name == "description":
                 # Copy description string types unmodified
-                d[child.localName] = get_text(child)
+                d[local_name] = get_text(child)
 
-            elif child.localName in ("baseAddress", "addressOffset", "range", "width", "size", "bitOffset", "bitWidth"):
+            elif local_name in ("baseAddress", "addressOffset", "range", "width", "size", "bitOffset", "bitWidth"):
                 # Parse integer types
-                d[child.localName] = self.parse_integer(get_text(child))
+                d[local_name] = self.parse_integer(get_text(child))
 
-            elif child.localName in ("isPresent", "volatile", "testable", "reserved"):
+            elif local_name in ("isPresent", "volatile", "testable", "reserved"):
                 # Parse boolean types
-                d[child.localName] = self.parse_boolean(get_text(child))
+                d[local_name] = self.parse_boolean(get_text(child))
 
-            elif child.localName in ("register", "registerFile", "field"):
+            elif local_name in ("register", "registerFile", "field"):
                 # Child elements that need to be parsed elsewhere
                 d['child_els'].append(child)
 
-            elif child.localName in ("reset", "resets"):
-                if child.localName == "resets":
+            elif local_name in ("reset", "resets"):
+                if local_name == "resets":
                     # pick the first reset
-                    reset = self.get_first_child_by_tag(child, self.ns + ":reset")
+                    reset = self.get_first_child_by_tag(child, self.ns + "reset")
                     if reset is None:
                         continue
                 else:
                     reset = child
 
-                value_el = self.get_first_child_by_tag(reset, self.ns + ":value")
-                if value_el:
+                value_el = self.get_first_child_by_tag(reset, self.ns + "value")
+                if value_el is not None:
                     d['reset.value'] = self.parse_integer(get_text(value_el))
 
-                mask_el = self.get_first_child_by_tag(reset, self.ns + ":mask")
-                if mask_el:
+                mask_el = self.get_first_child_by_tag(reset, self.ns + "mask")
+                if mask_el is not None:
                     d['reset.mask'] = self.parse_integer(get_text(mask_el))
 
-            elif child.localName == "access":
+            elif local_name == "access":
                 s = get_text(child).strip()
                 sw = typemaps.sw_from_access(s)
                 if sw is None:
                     self.msg.error(
-                        "Invalid value '%s' found in <%s>" % (s, child.tagName),
+                        "Invalid value '%s' found in <%s>" % (s, child.tag),
                         self.src_ref
                     )
                 else:
                     d['access'] = sw
 
-            elif child.localName == "dim":
+            elif local_name == "dim":
                 # Accumulate array dimensions
                 dim = self.parse_integer(get_text(child))
                 if 'dim' in d:
@@ -783,40 +794,40 @@ class IPXACTImporter(RDLImporter):
                 else:
                     d['dim'] = [dim]
 
-            elif child.localName == "readAction":
+            elif local_name == "readAction":
                 s = get_text(child).strip()
                 onread = typemaps.onread_from_readaction(s)
                 if onread is None:
                     self.msg.error(
-                        "Invalid value '%s' found in <%s>" % (s, child.tagName),
+                        "Invalid value '%s' found in <%s>" % (s, child.tag),
                         self.src_ref
                     )
                 else:
                     d['readAction'] = onread
 
-            elif child.localName == "modifiedWriteValue":
+            elif local_name == "modifiedWriteValue":
                 s = get_text(child).strip()
                 onwrite = typemaps.onwrite_from_mwv(s)
                 if onwrite is None:
                     self.msg.error(
-                        "Invalid value '%s' found in <%s>" % (s, child.tagName),
+                        "Invalid value '%s' found in <%s>" % (s, child.tag),
                         self.src_ref
                     )
                 else:
                     d['modifiedWriteValue'] = onwrite
 
-            elif child.localName == "enumeratedValues":
+            elif local_name == "enumeratedValues":
                 # Deal with this later
                 d['enum_el'] = child
 
-            elif child.localName == "vendorExtensions":
+            elif local_name == "vendorExtensions":
                 # Deal with this later
                 d['vendorExtensions'] = child
 
         return d
 
 
-    def parse_enumeratedValues(self, enumeratedValues: minidom.Element, type_name: str) -> Type[rdltypes.UserEnum]:
+    def parse_enumeratedValues(self, enumeratedValues: ElementTree.Element, type_name: str) -> Type[rdltypes.UserEnum]:
         """
         Parses an enumeration listing and returns the user-defined enum type
         """
@@ -824,18 +835,19 @@ class IPXACTImporter(RDLImporter):
         values = []
         member_names = []
         for enumeratedValue in self.iterelements(enumeratedValues):
-            if enumeratedValue.localName != "enumeratedValue":
+            if get_local_name(enumeratedValue) != "enumeratedValue":
                 continue
 
             # Flatten element values
             d = {} # type: Dict[str, Any]
             for child in self.iterelements(enumeratedValue):
-                if child.localName in ("name", "displayName"):
-                    d[child.localName] = get_text(child).strip()
-                elif child.localName == "description":
-                    d[child.localName] = get_text(child)
-                elif child.localName == "value":
-                    d[child.localName] = self.parse_integer(get_text(child))
+                local_name = get_local_name(child)
+                if local_name in ("name", "displayName"):
+                    d[local_name] = get_text(child).strip()
+                elif local_name == "description":
+                    d[local_name] = get_text(child)
+                elif local_name == "value":
+                    d[local_name] = self.parse_integer(get_text(child))
 
             name = self.get_sanitized_element_name(enumeratedValue)
 
@@ -881,31 +893,19 @@ class IPXACTImporter(RDLImporter):
 
 
     @staticmethod
-    def get_children_by_tag(el: minidom.Element, tag: str) -> List[minidom.Element]:
+    def get_children_by_tag(el: ElementTree.Element, tag: str) -> List[ElementTree.Element]:
         # Returns a list of immediate children that match the full tag
-        c = []
-        for child in el.childNodes:
-            if isinstance(child, minidom.Element) and (child.tagName == tag):
-                c.append(child)
-        return c
+        return el.findall(tag)
 
 
     @staticmethod
-    def get_first_child_by_tag(el: minidom.Element, tag: str) -> Optional[minidom.Element]:
+    def get_first_child_by_tag(el: ElementTree.Element, tag: str) -> Optional[ElementTree.Element]:
         # Returns the first child that matches the full tag
-        for child in el.childNodes:
-            if isinstance(child, minidom.Element) and (child.tagName == tag):
-                return child
-        return None
+        return el.find(tag)
 
 
-    def iterelements(self, el: minidom.Element) -> Iterable[minidom.Element]:
-        for child in el.childNodes:
-            if not isinstance(child, minidom.Element):
-                continue
-            if child.prefix != self.ns:
-                continue
-            yield child
+    def iterelements(self, el: ElementTree.Element) -> Iterable[ElementTree.Element]:
+        return el.iterfind("*")
 
 
     def AU_to_bytes(self, au: int) -> int:
@@ -922,32 +922,37 @@ class IPXACTImporter(RDLImporter):
         return byte_units
 
 
-    def memoryMap_vendorExtensions(self, vendorExtensions: minidom.Element, component: comp.Component) -> comp.Component:
+    def memoryMap_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: comp.Component) -> comp.Component:
         #pylint: disable=unused-argument
         return component
 
-    def addressBlock_vendorExtensions(self, vendorExtensions: minidom.Element, component: comp.Component) -> comp.Component:
+    def addressBlock_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: comp.Component) -> comp.Component:
         #pylint: disable=unused-argument
         return component
 
-    def registerFile_vendorExtensions(self, vendorExtensions: minidom.Element, component: comp.Component) -> comp.Component:
+    def registerFile_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: comp.Component) -> comp.Component:
         #pylint: disable=unused-argument
         return component
 
-    def register_vendorExtensions(self, vendorExtensions: minidom.Element, component: comp.Component) -> comp.Component:
+    def register_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: comp.Component) -> comp.Component:
         #pylint: disable=unused-argument
         return component
 
-    def field_vendorExtensions(self, vendorExtensions: minidom.Element, component: comp.Component) -> comp.Component:
+    def field_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: comp.Component) -> comp.Component:
         #pylint: disable=unused-argument
         return component
 
 #===============================================================================
-def get_text(el: minidom.Element) -> str:
-    for child in el.childNodes:
-        if isinstance(child, minidom.Text):
-            return child.data
-    return ""
+def get_text(el: ElementTree.Element) -> str:
+    return "".join(el.itertext())
 
 def roundup_pow2(x: int) -> int:
     return 1<<(x-1).bit_length()
+
+def get_namespace(el: ElementTree.Element) -> str:
+    # Returns the namespace part of this element's tag
+    return el.tag.split("}")[0] + "}"
+
+def get_local_name(el: ElementTree.Element) -> str:
+    # Returns the non-namespace part of this element's tag
+    return el.tag.split("}")[1]
