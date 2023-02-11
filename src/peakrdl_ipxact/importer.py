@@ -1,4 +1,4 @@
-from typing import Optional, List, Iterable, Dict, Any, Type, Union, Set
+from typing import Optional, List, Dict, Any, Type, Union, Set
 import re
 
 from xml.etree import ElementTree
@@ -86,7 +86,7 @@ class IPXACTImporter(RDLImporter):
 
     def get_all_memoryMap(self, component: ElementTree.Element) -> List[ElementTree.Element]:
         # Find <memoryMaps>
-        memoryMaps_s = self.get_children_by_tag(component, self.ns+"memoryMaps")
+        memoryMaps_s = component.findall(self.ns+"memoryMaps")
         if len(memoryMaps_s) != 1:
             self.msg.fatal(
                 "'component' must contain exactly one 'memoryMaps' element",
@@ -95,7 +95,7 @@ class IPXACTImporter(RDLImporter):
         memoryMaps = memoryMaps_s[0]
 
         # Find all <memoryMap>
-        memoryMap_s = self.get_children_by_tag(memoryMaps, self.ns+"memoryMap")
+        memoryMap_s = memoryMaps.findall(self.ns+"memoryMap")
 
         return memoryMap_s
 
@@ -108,14 +108,14 @@ class IPXACTImporter(RDLImporter):
         These provide alternate views into the address space depending on the state of the device.
         This function also returns any addressBlock elements that match the remap state
         """
-        addressBlocks = self.get_children_by_tag(memoryMap, self.ns+"addressBlock")
+        addressBlocks = memoryMap.findall(self.ns+"addressBlock")
 
-        memoryRemaps = self.get_children_by_tag(memoryMap, self.ns+"memoryRemap")
+        memoryRemaps = memoryMap.findall(self.ns+"memoryRemap")
         for memoryRemap in memoryRemaps:
             this_remapState = memoryRemap.get(self.ns+"state")
             self.remap_states_seen.add(this_remapState)
             if this_remapState == remap_state:
-                remap_addressBlocks = self.get_children_by_tag(memoryRemap, self.ns+"addressBlock")
+                remap_addressBlocks = memoryRemap.findall(self.ns+"addressBlock")
                 addressBlocks.extend(remap_addressBlocks)
 
         return addressBlocks
@@ -159,7 +159,7 @@ class IPXACTImporter(RDLImporter):
         if 'isPresent' in d:
             self.assign_property(C_def, "ispresent", d['isPresent'])
 
-        aub = self.get_first_child_by_tag(memoryMap, self.ns+"addressUnitBits")
+        aub = memoryMap.find(self.ns+"addressUnitBits")
         if aub is not None:
             self._addressUnitBits = self.parse_integer(get_text(aub))
 
@@ -252,7 +252,7 @@ class IPXACTImporter(RDLImporter):
             self.msg.fatal("addressBlock is missing required tag '%s'" % m, self.src_ref)
 
         # Create named component definition
-        is_memory = (d.get('usage', None) == "memory")
+        is_memory = d.get('usage', None) == "memory"
         type_name = name_prefix + name
         if is_memory:
             C_def = self.create_mem_definition(type_name)
@@ -709,7 +709,7 @@ class IPXACTImporter(RDLImporter):
 
         Returns None if not found
         """
-        name_el = self.get_first_child_by_tag(el, self.ns+"name")
+        name_el = el.find(self.ns+"name")
 
         if name_el is None:
             return None
@@ -736,7 +736,7 @@ class IPXACTImporter(RDLImporter):
             'child_els' : []
         } # type: Dict[str, Any]
 
-        for child in self.iterelements(el):
+        for child in el.iterfind("*"):
             local_name = get_local_name(child)
             if local_name in ("displayName", "usage"):
                 # Copy string types directly, but stripped
@@ -761,17 +761,17 @@ class IPXACTImporter(RDLImporter):
             elif local_name in ("reset", "resets"):
                 if local_name == "resets":
                     # pick the first reset
-                    reset = self.get_first_child_by_tag(child, self.ns + "reset")
+                    reset = child.find(self.ns + "reset")
                     if reset is None:
                         continue
                 else:
                     reset = child
 
-                value_el = self.get_first_child_by_tag(reset, self.ns + "value")
+                value_el = reset.find(self.ns + "value")
                 if value_el is not None:
                     d['reset.value'] = self.parse_integer(get_text(value_el))
 
-                mask_el = self.get_first_child_by_tag(reset, self.ns + "mask")
+                mask_el = reset.find(self.ns + "mask")
                 if mask_el is not None:
                     d['reset.mask'] = self.parse_integer(get_text(mask_el))
 
@@ -834,13 +834,13 @@ class IPXACTImporter(RDLImporter):
         members = []
         values = []
         member_names = []
-        for enumeratedValue in self.iterelements(enumeratedValues):
+        for enumeratedValue in enumeratedValues.iterfind("*"):
             if get_local_name(enumeratedValue) != "enumeratedValue":
                 continue
 
             # Flatten element values
             d = {} # type: Dict[str, Any]
-            for child in self.iterelements(enumeratedValue):
+            for child in enumeratedValue.iterfind("*"):
                 local_name = get_local_name(child)
                 if local_name in ("name", "displayName"):
                     d[local_name] = get_text(child).strip()
@@ -890,22 +890,6 @@ class IPXACTImporter(RDLImporter):
         enum_type = rdltypes.UserEnum.define_new(type_name, members)
 
         return enum_type
-
-
-    @staticmethod
-    def get_children_by_tag(el: ElementTree.Element, tag: str) -> List[ElementTree.Element]:
-        # Returns a list of immediate children that match the full tag
-        return el.findall(tag)
-
-
-    @staticmethod
-    def get_first_child_by_tag(el: ElementTree.Element, tag: str) -> Optional[ElementTree.Element]:
-        # Returns the first child that matches the full tag
-        return el.find(tag)
-
-
-    def iterelements(self, el: ElementTree.Element) -> Iterable[ElementTree.Element]:
-        return el.iterfind("*")
 
 
     def AU_to_bytes(self, au: int) -> int:
