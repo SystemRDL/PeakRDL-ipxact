@@ -1,6 +1,9 @@
 from typing import TYPE_CHECKING
 import re
 
+from peakrdl.plugins.importer import ImporterPlugin #pylint: disable=import-error
+from peakrdl.plugins.exporter import ExporterSubcommandPlugin #pylint: disable=import-error
+
 from .exporter import IPXACTExporter, Standard
 from .importer import IPXACTImporter
 
@@ -10,7 +13,7 @@ if TYPE_CHECKING:
     from systemrdl.node import AddrmapNode
 
 
-class Exporter:
+class Exporter(ExporterSubcommandPlugin):
     short_desc = "Export the register model to IP-XACT"
 
 
@@ -61,7 +64,7 @@ class Exporter:
         )
 
 
-class Importer:
+class Importer(ImporterPlugin):
     file_extensions = ["xml"]
 
     def is_compatible(self, path: str) -> bool:
