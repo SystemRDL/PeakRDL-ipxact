@@ -12,8 +12,11 @@ from . import typemaps
 
 
 # Expected IP-XACT namespaces. This parser is not strict about the exact version.
-IPXACT_NAMESPACE_PREFIX = "http://www.accellera.org/XMLSchema/IPXACT/"
-SPIRIT_NAMESPACE_PREFIX = "http://www.spiritconsortium.org/XMLSchema/SPIRIT/"
+VALID_NS_PREFIXES = {
+    "http://www.spiritconsortium.org/XMLSchema/SPIRIT/",
+    "http://www.accellera.org/XMLSchema/spirit/1685-2009",
+    "http://www.accellera.org/XMLSchema/IPXACT/",
+}
 
 class IPXACTImporter(RDLImporter):
 
@@ -70,12 +73,12 @@ class IPXACTImporter(RDLImporter):
         if get_local_name(root) == "component":
             component = root
             namespace = get_namespace(root)
-            if IPXACT_NAMESPACE_PREFIX in namespace:
-                self.ns = namespace
-            elif SPIRIT_NAMESPACE_PREFIX in namespace:
-                self.ns = namespace
+            for ns in VALID_NS_PREFIXES:
+                if ns in namespace:
+                    self.ns = namespace
+                    break
             else:
-                self.msg.fatal("Could not find a known ip-xact namespace")
+                self.msg.fatal("Unrecognized namespace URI: %s" % namespace, self.src_ref)
         else:
             self.msg.fatal(
                 "Could not find a 'component' element",
