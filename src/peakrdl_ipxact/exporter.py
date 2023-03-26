@@ -139,7 +139,7 @@ class IPXACTExporter:
         # - exclusively addrmap or mem
         # - and None of them are arrays
         # ... then it makes more sense to "explode" the
-        # top-level node and make each of it's children their own addressBlock
+        # top-level node and make each of its children their own addressBlock
         # (explode --> True)
         #
         # Otherwise, do not "explode" the top-level node
@@ -180,7 +180,7 @@ class IPXACTExporter:
         else:
             # Not exploding apart the top-level node
 
-            # Wrap it in a dummy memoryMap that bears it's name
+            # Wrap it in a dummy memoryMap that bears its name
             mmap = self.doc.createElement(self.ns + "memoryMap")
             self.add_nameGroup(mmap, "%s_mmap" % node.inst_name)
             mmaps.appendChild(mmap)
