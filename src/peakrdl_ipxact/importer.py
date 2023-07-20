@@ -595,10 +595,8 @@ class IPXACTImporter(RDLImporter):
         if 'isPresent' in d:
             self.assign_property(C, "ispresent", d['isPresent'])
 
-        if 'access' in d:
-            self.assign_property(C, "sw", d['access'])
-        else:
-            self.assign_property(C, "sw", reg_access)
+        sw_access = d.get("access", reg_access)
+        self.assign_property(C, "sw", sw_access)
 
         if 'testable' in d:
             self.assign_property(C, "donttest", not d['testable'])
@@ -629,6 +627,22 @@ class IPXACTImporter(RDLImporter):
 
         if 'vendorExtensions' in d:
             C = self.field_vendorExtensions(d['vendorExtensions'], C)
+
+        # Guess what the hw access property might be based on context
+        volatile = d.get("volatile", False)
+        if sw_access == rdltypes.AccessType.r:
+            hw_access = rdltypes.AccessType.w
+        elif sw_access in (rdltypes.AccessType.w, rdltypes.AccessType.w1):
+            if volatile:
+                hw_access = rdltypes.AccessType.r
+            else:
+                hw_access = rdltypes.AccessType.rw
+        elif sw_access in (rdltypes.AccessType.rw, rdltypes.AccessType.rw1):
+            if volatile:
+                hw_access = rdltypes.AccessType.rw
+            else:
+                hw_access = rdltypes.AccessType.r
+        self.assign_property(C, "hw", hw_access)
 
         return C
 

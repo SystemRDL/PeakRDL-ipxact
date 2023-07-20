@@ -26,7 +26,7 @@ setuptools.setup(
     include_package_data=True,
     python_requires='>=3.5.2',
     install_requires=[
-        "systemrdl-compiler>=1.24.0",
+        "systemrdl-compiler >= 1.24.0, < 2",
     ],
     entry_points = {
         "peakrdl.exporters": [
@@ -57,5 +57,6 @@ setuptools.setup(
         "Documentation": "https://peakrdl-ipxact.readthedocs.io",
         "Source": "https://github.com/SystemRDL/PeakRDL-ipxact",
         "Tracker": "https://github.com/SystemRDL/PeakRDL-ipxact/issues",
+        "Changelog": "https://github.com/SystemRDL/PeakRDL-ipxact/releases",
     },
 )
