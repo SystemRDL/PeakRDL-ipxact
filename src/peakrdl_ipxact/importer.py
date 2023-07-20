@@ -12,11 +12,11 @@ from . import typemaps
 
 
 # Expected IP-XACT namespaces. This parser is not strict about the exact version.
-VALID_NS_PREFIXES = {
-    "http://www.spiritconsortium.org/XMLSchema/SPIRIT/",
-    "http://www.accellera.org/XMLSchema/spirit/1685-2009",
-    "http://www.accellera.org/XMLSchema/IPXACT/",
-}
+VALID_NS_REGEXES = [
+    re.compile(r"\{http[s]?:\/\/www\.spiritconsortium\.org\/XMLSchema\/SPIRIT", re.IGNORECASE),
+    re.compile(r"\{http[s]?:\/\/www\.accellera\.org/XMLSchema/spirit\/1685-2009", re.IGNORECASE),
+    re.compile(r"\{http[s]?:\/\/www\.accellera\.org\/XMLSchema\/IPXACT", re.IGNORECASE),
+]
 
 class IPXACTImporter(RDLImporter):
 
@@ -73,8 +73,8 @@ class IPXACTImporter(RDLImporter):
         if get_local_name(root) == "component":
             component = root
             namespace = get_namespace(root)
-            for ns in VALID_NS_PREFIXES:
-                if ns in namespace:
+            for ns_regex in VALID_NS_REGEXES:
+                if ns_regex.match(namespace):
                     self.ns = namespace
                     break
             else:
