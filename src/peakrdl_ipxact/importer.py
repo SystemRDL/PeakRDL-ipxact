@@ -632,12 +632,7 @@ class IPXACTImporter(RDLImporter):
         volatile = d.get("volatile", False)
         if sw_access == rdltypes.AccessType.r:
             hw_access = rdltypes.AccessType.w
-        elif sw_access in (rdltypes.AccessType.w, rdltypes.AccessType.w1):
-            if volatile:
-                hw_access = rdltypes.AccessType.r
-            else:
-                hw_access = rdltypes.AccessType.rw
-        elif sw_access in (rdltypes.AccessType.rw, rdltypes.AccessType.rw1):
+        elif sw_access in (rdltypes.AccessType.w, rdltypes.AccessType.w1, rdltypes.AccessType.rw, rdltypes.AccessType.rw1):
             if volatile:
                 hw_access = rdltypes.AccessType.rw
             else:
