@@ -502,19 +502,40 @@ class IPXACTImporter(RDLImporter):
         reg_reset_value = d.get('reset.value', None)
         reg_reset_mask = d.get('reset.mask', None)
 
-        # collect children
+        # Collect field elements and scan for name collisions
+        field_tuples = []
+        field_names = set()
+        field_name_collisions = set()
         for child_el in d['child_els']:
             local_name = get_local_name(child_el)
             if local_name == "field":
-                field = self.parse_field(child_el, reg_access, reg_reset_value, reg_reset_mask)
-                if field is not None:
-                    self.add_child(C, field)
+                # This XML element is a field
+                field_name = self.get_sanitized_element_name(child_el)
+                field_tuples.append((field_name, child_el))
+                if field_name in field_names:
+                    field_name_collisions.add(field_name)
+                else:
+                    field_names.add(field_name)
             else:
                 self.msg.error(
                     "Invalid child element <%s> found in <%s:register>"
                     % (child_el.tag, self.ns),
                     self.src_ref
                 )
+
+        # Process fields
+        for field_name, field_el in field_tuples:
+            # Uniquify field name if necessary
+            uniquify_field_name = field_name in field_name_collisions
+
+            field = self.parse_field(
+                field_name, field_el,
+                reg_access, reg_reset_value, reg_reset_mask,
+                uniquify_field_name
+            )
+            if field is not None:
+                self.add_child(C, field)
+
 
         if 'vendorExtensions' in d:
             C = self.register_vendorExtensions(d['vendorExtensions'], C)
@@ -531,7 +552,12 @@ class IPXACTImporter(RDLImporter):
         return C
 
 
-    def parse_field(self, field: ElementTree.Element, reg_access: rdltypes.AccessType, reg_reset_value: Optional[int], reg_reset_mask: Optional[int]) -> Optional[comp.Field]:
+    def parse_field(
+        self,
+        name: str, field: ElementTree.Element,
+        reg_access: rdltypes.AccessType, reg_reset_value: Optional[int], reg_reset_mask: Optional[int],
+        uniquify_field_name: bool,
+    ) -> Optional[comp.Field]:
         """
         Parses an field and returns an instantiated field component
         """
@@ -565,7 +591,6 @@ class IPXACTImporter(RDLImporter):
         #   vendorExtensions
 
         d = self.flatten_element_values(field)
-        name = self.get_sanitized_element_name(field)
 
         # Check for required values
         required = {'bitOffset', 'bitWidth'}
@@ -578,6 +603,9 @@ class IPXACTImporter(RDLImporter):
         # Discard field if it is reserved
         if d.get('reserved', False):
             return None
+
+        if uniquify_field_name:
+            name += "_%d_%d" % (d['bitOffset'] + d['bitWidth'] - 1, d['bitOffset'])
 
         # Create component instance
         C = self.instantiate_field(

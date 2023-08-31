@@ -112,6 +112,9 @@ may be performed:
 * IP-XACT allows registers to be any arbitrary bit width, but SystemRDL requires
   the ``regwidth`` property to be at least 8, and a power of 2.
   The imported ``regwidth`` may be padded up as necessary.
+* IP-XACT allows a register to contain multiple fields with the same name. If
+  this is detected, the importer will uniquify the instance names based on the
+  fields' bit ranges.
 
 
 
