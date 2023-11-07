@@ -17,7 +17,7 @@ description = "Import and export IP-XACT XML to/from the systemrdl-compiler regi
 readme = "README.md"
 license = {file = "LICENSE"}
 keywords = [
-    "SystmRDL", "PeakRDL", "CSR", "compiler", "tool", "registers", "generator",
+    "SystemRDL", "PeakRDL", "CSR", "compiler", "tool", "registers", "generator",
     "IP-XACT",
 ]
 classifiers = [
