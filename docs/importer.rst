@@ -138,3 +138,26 @@ API
 .. autoclass:: peakrdl_ipxact.IPXACTImporter
     :special-members: __init__
     :members: import_file
+
+
+Example
+^^^^^^^
+Below is a simple example of how to import an IP-XACT definition into the
+register model.
+
+.. code-block:: python
+    :emphasize-lines: 3, 6, 9
+
+    import sys
+    from systemrdl import RDLCompiler, RDLCompileError
+    from peakrdl_ipxact import IPXACTImporter
+
+    rdlc = RDLCompiler()
+    ipxact = IPXACTImporter(rdlc)
+
+    try:
+        ipxact.import_file("path/to/my_ipxact.xml")
+        rdlc.compile_file("path/to/my.rdl")
+        root = rdlc.elaborate()
+    except RDLCompileError:
+        sys.exit(1)

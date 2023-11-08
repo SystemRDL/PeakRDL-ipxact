@@ -36,3 +36,29 @@ API
 
 .. autoclass:: peakrdl_ipxact.Standard
     :members:
+
+Example
+^^^^^^^
+Below is a simple example that shows how to convert a SystemRDL register model
+into IP-XACT.
+
+.. code-block:: python
+    :emphasize-lines: 3, 13-15, 17
+
+    import sys
+    from systemrdl import RDLCompiler, RDLCompileError
+    from peakrdl_ipxact import IPXACTExporter, Standard
+
+    rdlc = RDLCompiler()
+
+    try:
+        rdlc.compile_file("path/to/my.rdl")
+        root = rdlc.elaborate()
+    except RDLCompileError:
+        sys.exit(1)
+
+    exporter = IPXACTExporter(
+        standard=Standard.IEEE_1685_2014
+    )
+
+    exporter.export(root, "path/to/output.xml")

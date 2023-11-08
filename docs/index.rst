@@ -19,59 +19,20 @@ Install from `PyPi`_ using pip
 .. _PyPi: https://pypi.org/project/peakrdl-ipxact
 
 
+Example
+-------
+The easiest way to use PeakRDL-ipxact is via the `PeakRDL command line tool <https://peakrdl.readthedocs.io/>`_:
 
-Quick Start
------------
+.. code-block:: bash
 
-Exporting to IP-XACT
-^^^^^^^^^^^^^^^^^^^^
-Below is a simple example that shows how to convert a SystemRDL register model
-into IP-XACT.
+    # Install the command line tool
+    python3 -m pip install peakrdl
 
-.. code-block:: python
-    :emphasize-lines: 3, 13-15, 17
+    # Convert SystemRDL to IP-XACT
+    peakrdl ip-xact your_design.rdl -o your_design.xml
 
-    import sys
-    from systemrdl import RDLCompiler, RDLCompileError
-    from peakrdl_ipxact import IPXACTExporter, Standard
-
-    rdlc = RDLCompiler()
-
-    try:
-        rdlc.compile_file("path/to/my.rdl")
-        root = rdlc.elaborate()
-    except RDLCompileError:
-        sys.exit(1)
-
-    exporter = IPXACTExporter(
-        standard=Standard.IEEE_1685_2014
-    )
-
-    exporter.export(root, "path/to/output.xml")
-
-
-
-Importing IP-XACT
-^^^^^^^^^^^^^^^^^
-Below is a simple example of how to import an IP-XACT definition into the
-register model.
-
-.. code-block:: python
-    :emphasize-lines: 3, 6, 9
-
-    import sys
-    from systemrdl import RDLCompiler, RDLCompileError
-    from peakrdl_ipxact import IPXACTImporter
-
-    rdlc = RDLCompiler()
-    ipxact = IPXACTImporter(rdlc)
-
-    try:
-        ipxact.import_file("path/to/my_ipxact.xml")
-        rdlc.compile_file("path/to/my.rdl")
-        root = rdlc.elaborate()
-    except RDLCompileError:
-        sys.exit(1)
+    # Convert IP-XACT to SystemRDL
+    peakrdl systemrdl your_design.xml -o your_design.rdl
 
 
 
