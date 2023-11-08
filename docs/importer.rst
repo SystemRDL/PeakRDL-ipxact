@@ -115,6 +115,9 @@ may be performed:
 * IP-XACT allows a register to contain multiple fields with the same name. If
   this is detected, the importer will uniquify the instance names based on the
   fields' bit ranges.
+* Any empty register model nodes are discarded. This can be due to a register
+  not containing any fields, or register file or address map structures not
+  containing any child components.
 
 
 
