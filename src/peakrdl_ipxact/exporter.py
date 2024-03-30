@@ -398,7 +398,7 @@ class IPXACTExporter:
             mask = 0
             for field in node.fields(skip_not_present=False):
                 field_reset = field.get_property("reset")
-                if field_reset is not None:
+                if isinstance(field_reset, int):
                     field_mask = ((1 << field.width) - 1) << field.lsb
                     field_reset = (field_reset << field.lsb) & field_mask
                     reset |= field_reset
@@ -439,7 +439,7 @@ class IPXACTExporter:
 
         if self.standard >= Standard.IEEE_1685_2014:
             reset = node.get_property("reset")
-            if reset is not None:
+            if isinstance(reset, int):
                 resets_el = self.doc.createElement(self.ns + "resets")
                 field.appendChild(resets_el)
                 reset_el = self.doc.createElement(self.ns + "reset")

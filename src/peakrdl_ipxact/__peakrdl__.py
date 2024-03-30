@@ -73,7 +73,7 @@ class Importer(ImporterPlugin):
         with open(path, "r", encoding="utf-8") as f:
             if re.search(r"<(spirit|ipxact):component\b", f.read()):
                 return True
-        return False
+        return False # type: ignore [unreachable]
 
     def add_importer_arguments(self, arg_group: 'argparse.ArgumentParser') -> None:
         arg_group.add_argument(

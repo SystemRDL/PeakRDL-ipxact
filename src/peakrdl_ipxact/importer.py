@@ -700,7 +700,7 @@ class IPXACTImporter(RDLImporter):
                 v *= multiplier[m.group(2).upper()]
             return v
 
-        m = re.fullmatch(r"\d*'h([0-9a-f]+)", s, re.I)
+        m = re.fullmatch(r"\d*'h([0-9a-f]+)", s, re.I) # type: ignore [unreachable]
         if m:
             return int(m.group(1), 16)
 
