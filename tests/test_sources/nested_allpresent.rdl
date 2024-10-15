@@ -1,0 +1,37 @@
+
+addrmap nested {
+    name = "nested top-level";
+    desc = "This is a nested top-level block";
+
+    some_register_map srm1 @ 0x0;
+    some_register_map srm2 @ 0x2000;
+
+    addrmap {
+        some_register_map srma @ 0;
+        some_register_map srmb @ 0x2000;
+
+        reg {
+            name = "A register";
+            donttest = true;
+
+            field {
+                name = "untestable field";
+                donttest = true;
+            } f1;
+
+            field {} f2;
+
+            field {
+                onwrite = woclr;
+            } f3 = 0x1;
+
+        } reg1[2][3];
+    } wrapped_srm @ 0x4000;
+
+    external mem {
+        name = "A Memory";
+        desc = "This is a memory block";
+        memwidth = 32;
+        mementries = 128;
+    } mem1 @0x8000;
+};

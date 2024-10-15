@@ -22,6 +22,12 @@ class Standard(enum.IntEnum):
     #: IP-XACT - IEEE Std. 1685-2014
     IEEE_1685_2014 = 2014
 
+    @property
+    def supports_isPresent(self) -> bool:
+        # Only 2014 supports ispresent
+        return self == Standard.IEEE_1685_2014
+
+
 #===============================================================================
 class IPXACTExporter:
     def __init__(self, **kwargs: Any) -> None:
@@ -64,6 +70,9 @@ class IPXACTExporter:
             self.ns = "ipxact:"
         else:
             self.ns = "spirit:"
+
+        # If standard supports isPresent tags, don't skip them
+        self.skip_not_present = not self.standard.supports_isPresent
 
     #---------------------------------------------------------------------------
     def export(self, node: Union[AddrmapNode, RootNode], path: str, **kwargs: Any) -> None:
@@ -148,7 +157,7 @@ class IPXACTExporter:
             addrblockable_children = 0
             non_addrblockable_children = 0
 
-            for child in node.children(skip_not_present=False):
+            for child in node.children(skip_not_present=self.skip_not_present):
                 if not isinstance(child, AddressableNode):
                     continue
 
@@ -172,7 +181,7 @@ class IPXACTExporter:
             mmaps.appendChild(mmap)
 
             # Top-node's children become their own addressBlocks
-            for child in node.children(skip_not_present=False):
+            for child in node.children(skip_not_present=self.skip_not_present):
                 if not isinstance(child, AddressableNode):
                     continue
 
@@ -214,9 +223,24 @@ class IPXACTExporter:
 
     #---------------------------------------------------------------------------
     def add_registerData(self, parent: minidom.Element, node: RegNode) -> None:
-        if self.standard == Standard.IEEE_1685_2014:
+        if self.standard == Standard.IEEE_1685_2009:
+            # registers must all be listed before register files
+            for child in node.children(skip_not_present=self.skip_not_present):
+                if isinstance(child, RegNode):
+                    self.add_register(parent, child)
+
+            for child in node.children(skip_not_present=self.skip_not_present):
+                if isinstance(child, (AddrmapNode, RegfileNode)):
+                    self.add_registerFile(parent, child)
+                elif isinstance(child, MemNode):
+                    self.msg.warning(
+                        "IP-XACT does not support 'mem' nodes that are nested in hierarchy. Discarding '%s'"
+                        % child.get_path(),
+                        child.inst.inst_src_ref
+                    )
+        else:
             # registers and registerFiles can be interleaved
-            for child in node.children(skip_not_present=False):
+            for child in node.children(skip_not_present=self.skip_not_present):
                 if isinstance(child, RegNode):
                     self.add_register(parent, child)
                 elif isinstance(child, (AddrmapNode, RegfileNode)):
@@ -227,23 +251,6 @@ class IPXACTExporter:
                         % child.get_path(),
                         child.inst.inst_src_ref
                     )
-        elif self.standard == Standard.IEEE_1685_2009:
-            # registers must all be listed before register files
-            for child in node.children(skip_not_present=False):
-                if isinstance(child, RegNode):
-                    self.add_register(parent, child)
-
-            for child in node.children(skip_not_present=False):
-                if isinstance(child, (AddrmapNode, RegfileNode)):
-                    self.add_registerFile(parent, child)
-                elif isinstance(child, MemNode):
-                    self.msg.warning(
-                        "IP-XACT does not support 'mem' nodes that are nested in hierarchy. Discarding '%s'"
-                        % child.get_path(),
-                        child.inst.inst_src_ref
-                    )
-        else:
-            raise RuntimeError
 
     #---------------------------------------------------------------------------
     def hex_str(self, v: int) -> str:
@@ -275,7 +282,7 @@ class IPXACTExporter:
             node.get_property("desc")
         )
 
-        if (self.standard >= Standard.IEEE_1685_2014) and not node.get_property("ispresent"):
+        if self.standard.supports_isPresent and not node.get_property("ispresent"):
             self.add_value(addressBlock, self.ns + "isPresent", "0")
 
         self.add_value(addressBlock, self.ns + "baseAddress", self.hex_str(node.absolute_address))
@@ -329,7 +336,7 @@ class IPXACTExporter:
             node.get_property("desc")
         )
 
-        if (self.standard >= Standard.IEEE_1685_2014) and not node.get_property("ispresent"):
+        if self.standard.supports_isPresent and not node.get_property("ispresent"):
             self.add_value(registerFile, self.ns + "isPresent", "0")
 
         if node.is_array:
@@ -367,7 +374,7 @@ class IPXACTExporter:
             node.get_property("desc")
         )
 
-        if (self.standard >= Standard.IEEE_1685_2014) and not node.get_property("ispresent"):
+        if self.standard.supports_isPresent and not node.get_property("ispresent"):
             self.add_value(register, self.ns + "isPresent", "0")
 
         if node.is_array:
@@ -396,7 +403,7 @@ class IPXACTExporter:
         if self.standard <= Standard.IEEE_1685_2009:
             reset = 0
             mask = 0
-            for field in node.fields(skip_not_present=False):
+            for field in node.fields(skip_not_present=self.skip_not_present):
                 field_reset = field.get_property("reset")
                 if isinstance(field_reset, int):
                     field_mask = ((1 << field.width) - 1) << field.lsb
@@ -410,7 +417,7 @@ class IPXACTExporter:
                 self.add_value(reset_el, self.ns + "value", self.hex_str(reset))
                 self.add_value(reset_el, self.ns + "mask", self.hex_str(mask))
 
-        for field in node.fields(skip_not_present=False):
+        for field in node.fields(skip_not_present=self.skip_not_present):
             self.add_field(register, field)
 
         # DNE: <spirit/ipxact:alternateRegisters> [...]
@@ -432,7 +439,7 @@ class IPXACTExporter:
             node.get_property("desc")
         )
 
-        if (self.standard >= Standard.IEEE_1685_2014) and not node.get_property("ispresent"):
+        if self.standard.supports_isPresent and not node.get_property("ispresent"):
             self.add_value(field, self.ns + "isPresent", "0")
 
         self.add_value(field, self.ns + "bitOffset", "%d" % node.low)

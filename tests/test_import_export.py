@@ -66,7 +66,7 @@ class TestImportExport(IPXACTTestCase):
         self.symmetry_check(
             [
                 os.path.join(this_dir, "test_sources/accellera-generic_example.rdl"),
-                os.path.join(this_dir, "test_sources/nested.rdl")
+                os.path.join(this_dir, "test_sources/nested_allpresent.rdl")
             ],
             Standard.IEEE_1685_2009
         )
