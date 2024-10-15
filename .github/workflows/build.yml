@@ -30,10 +30,13 @@ jobs:
           - "3.12"
         include:
           - os: ubuntu-latest
+            setup-python-env: {}
 
           # older versions need older OS
           - python-version: 3.5
             os: ubuntu-20.04
+            setup-python-env:
+              PIP_TRUSTED_HOST: "pypi.python.org pypi.org files.pythonhosted.org"
           - python-version: 3.6
             os: ubuntu-20.04
 
@@ -44,14 +47,15 @@ jobs:
 
       - name: Set up Python 3.7 to bootstrap py3.6 and py3.5
         if: ${{ matrix.python-version == '3.6' || matrix.python-version == '3.5' }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+        env: ${{ matrix.setup-python-env }}
 
       # Python 3.6 & 3.7 cannot install directly from a pyproject.toml
       # Instead, build a wheel from py3.7 and then install it
@@ -106,7 +110,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
@@ -128,7 +132,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
@@ -151,7 +155,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         name: Install Python
         with:
           python-version: "3.10"
@@ -163,7 +167,7 @@ jobs:
       - name: Build
         run: python -m build
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           path: |
             dist/*.tar.gz
@@ -182,7 +186,7 @@ jobs:
     # Only publish when a GitHub Release is created.
     if: github.event_name == 'release'
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: artifact
           path: dist
