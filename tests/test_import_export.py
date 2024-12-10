@@ -5,13 +5,14 @@ from peakrdl_ipxact.exporter import Standard
 from .unittest_utils import IPXACTTestCase
 
 from systemrdl.node import RegNode, FieldNode, MemNode
+from systemrdl.rdltypes.builtin_enums import AccessType
 
 class TestImportExport(IPXACTTestCase):
 
     def symmetry_check(self, sources, std):
         a = self.compile(sources)
 
-        xml_path = "%s.xml" % self.request.node.name
+        xml_path = "%s.xml" % os.path.join(self.tempdir.name, self.id())
 
         with self.subTest("export"):
             self.export(a, xml_path, std)
@@ -70,3 +71,29 @@ class TestImportExport(IPXACTTestCase):
             ],
             Standard.IEEE_1685_2009
         )
+
+    def test_import_xml(self):
+        this_dir = os.path.dirname(os.path.realpath(__file__))
+        xml_path = os.path.join(this_dir, "test_sources/example.xml")
+
+        root = self.compile([xml_path])
+
+        field = root.find_by_path('top.some_regfile.some_reg.f1')
+        self.assertIsNotNone(field)
+        self.assertEqual(field.get_property("sw"), AccessType.rw)
+
+        field = root.find_by_path('top.some_other_regfile.some_other_reg.f2')
+        self.assertIsNotNone(field)
+        self.assertEqual(field.get_property("sw"), AccessType.r)
+
+    def test_import_xml_with_name_filter(self):
+        this_dir = os.path.dirname(os.path.realpath(__file__))
+        xml_path = os.path.join(this_dir, "test_sources/example.xml")
+
+        root = self.compile([xml_path], name_filter_regex=r'.*_other_.*')
+
+        self.assertIsNone(root.find_by_path('top.some_regfile'))
+
+        field = root.find_by_path('top.some_other_reg.f2')
+        self.assertIsNotNone(field)
+        self.assertEqual(field.get_property("sw"), AccessType.r)

@@ -1,8 +1,9 @@
 import os
 import unittest
 import subprocess
+import tempfile
+from typing import Optional
 import logging
-import pytest
 
 from systemrdl import RDLCompiler
 from systemrdl.messages import MessagePrinter
@@ -21,14 +22,18 @@ class TestPrinter(MessagePrinter):
 
 class IPXACTTestCase(unittest.TestCase):
 
-    #: this gets auto-loaded via the _load_request autouse fixture
-    request = None # type: pytest.FixtureRequest
+    def setUp(self):
+      super().setUp()
+      self.tempdir = tempfile.TemporaryDirectory()
 
-    @pytest.fixture(autouse=True)
-    def _load_request(self, request):
-        self.request = request
+    def tearDown(self):
+      self.tempdir.cleanup()
+      super().tearDown()
 
-    def compile(self, files, top_name=None):
+    def compile(self,
+                files,
+                top_name=None,
+                name_filter_regex: Optional[str]=None):
         rdlc = RDLCompiler(
             message_printer=TestPrinter()
         )
@@ -38,7 +43,7 @@ class IPXACTTestCase(unittest.TestCase):
             if file.endswith(".rdl"):
                 rdlc.compile_file(file)
             elif file.endswith(".xml"):
-                ipxact.import_file(file)
+                ipxact.import_file(file, name_filter_regex=name_filter_regex)
         return rdlc.elaborate(top_name, "top")
 
     def compare_nodes(self, a: Node, b: Node):
@@ -59,7 +64,6 @@ class IPXACTTestCase(unittest.TestCase):
         for prop in props:
             if prop not in check_props:
                 continue
-            print(prop, a, b)
             self.assertEqual(a.get_property(prop), b.get_property(prop))
 
     def export(self, node, file, std):
