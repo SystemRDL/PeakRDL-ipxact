@@ -34,7 +34,7 @@ class IPXACTImporter(RDLImporter):
         self._addressUnitBits = 8
         self._current_addressBlock_access = rdltypes.AccessType.rw
         self.remap_states_seen = set() # type: Set[str]
-        self._name_filter_regex = None
+        self._name_filter_regex = None # type: Optional[str]
         self._lock = threading.Lock()
 
     @property
@@ -352,7 +352,7 @@ class IPXACTImporter(RDLImporter):
 
     def allow_definition(self, definition: comp.Component) -> bool:
         return (self._name_filter_regex is None or
-                re.fullmatch(self._name_filter_regex, definition.type_name))
+                re.fullmatch(self._name_filter_regex, definition.type_name) is not None)
 
     #override
     def register_root_component(self, definition: comp.Component) -> None:
