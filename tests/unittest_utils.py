@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 from typing import Optional
 import logging
+import pytest
 
 from systemrdl import RDLCompiler
 from systemrdl.messages import MessagePrinter
@@ -33,6 +34,7 @@ class IPXACTTestCase(unittest.TestCase):
     #: this gets auto-loaded via the _load_request autouse fixture
     request = None # type: pytest.FixtureRequest
 
+    @pytest.fixture(autouse=True)
     def _load_request(self, request):
         self.request = request
 

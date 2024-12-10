@@ -683,6 +683,17 @@ class IPXACTImporter(RDLImporter):
         if 'vendorExtensions' in d:
             C = self.field_vendorExtensions(d['vendorExtensions'], C)
 
+        # Guess what the hw access property might be based on context
+        volatile = d.get("volatile", False)
+        if sw_access == rdltypes.AccessType.r:
+            hw_access = rdltypes.AccessType.w
+        else:
+            if volatile:
+                hw_access = rdltypes.AccessType.rw
+            else:
+                hw_access = rdltypes.AccessType.r
+        self.assign_property(C, "hw", hw_access)
+
         return C
 
 
