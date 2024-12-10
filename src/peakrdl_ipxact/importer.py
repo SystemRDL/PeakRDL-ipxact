@@ -670,11 +670,6 @@ class IPXACTImporter(RDLImporter):
 
         if 'modifiedWriteValue' in d:
             self.assign_property(C, "onwrite", d['modifiedWriteValue'])
-        else:
-            # Non-volatile fields cannot be hardware writable. 'volatile'
-            # defaults to False.
-            if 'volatile' not in d or not d['volatile']:
-                self.assign_property(C, 'hw', rdltypes.AccessType.r)
 
         if 'enum_el' in d:
             enum_type = self.parse_enumeratedValues(d['enum_el'], C.inst_name + "_enum_t")
