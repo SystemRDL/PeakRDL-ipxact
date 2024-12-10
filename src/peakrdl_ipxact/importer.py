@@ -674,7 +674,7 @@ class IPXACTImporter(RDLImporter):
             # Non-volatile fields cannot be hardware writable. 'volatile'
             # defaults to False.
             if 'volatile' not in d or not d['volatile']:
-              self.assign_property(C, 'hw', rdltypes.AccessType.r)
+                self.assign_property(C, 'hw', rdltypes.AccessType.r)
 
         if 'enum_el' in d:
             enum_type = self.parse_enumeratedValues(d['enum_el'], C.inst_name + "_enum_t")
