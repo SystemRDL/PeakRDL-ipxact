@@ -21,7 +21,7 @@ VALID_NS_REGEXES = [
 
 class IPXACTImporter(RDLImporter):
 
-    def __init__(self, compiler: RDLCompiler, uniquify_names: bool = True):
+    def __init__(self, compiler: RDLCompiler):
         """
         Parameters
         ----------
