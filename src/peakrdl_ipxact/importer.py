@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict, Any, Type, Union, Set
 import re
+import threading
 
 from xml.etree import ElementTree
 
@@ -20,7 +21,7 @@ VALID_NS_REGEXES = [
 
 class IPXACTImporter(RDLImporter):
 
-    def __init__(self, compiler: RDLCompiler):
+    def __init__(self, compiler: RDLCompiler, uniquify_names: bool = True):
         """
         Parameters
         ----------
@@ -33,15 +34,22 @@ class IPXACTImporter(RDLImporter):
         self._addressUnitBits = 8
         self._current_addressBlock_access = rdltypes.AccessType.rw
         self.remap_states_seen = set() # type: Set[str]
+        self._name_filter_regex = None
+        self._lock = threading.Lock()
 
     @property
     def src_ref(self) -> SourceRefBase:
         return self.default_src_ref
 
 
-    def import_file(self, path: str, remap_state: Optional[str] = None) -> None:
+    def import_file(self,
+                    path: str,
+                    remap_state: Optional[str] = None,
+                    name_filter_regex: Optional[str] = None) -> None:
         """
         Import a single SPIRIT or IP-XACT file into the SystemRDL namespace.
+
+        This method is thread-safe.
 
         Parameters
         ----------
@@ -50,21 +58,27 @@ class IPXACTImporter(RDLImporter):
         remap_state:
             Optional remapState string that is used to select memoryRemap regions
             that are tagged under a specific remap state.
+        name_filter_regex:
+            If provided, then import (to the root scope) only elements whose
+            name matches the regex.
+            Ignore all other elements.
         """
-        super().import_file(path)
+        with self._lock:
+            super().import_file(path)
 
-        self._addressUnitBits = 8
-        self.remap_states_seen = set()
+            self._addressUnitBits = 8
+            self.remap_states_seen = set()
+            self._name_filter_regex = name_filter_regex
 
-        tree = ElementTree.parse(path)
+            tree = ElementTree.parse(path)
 
-        component = self.get_component(tree)
+            component = self.get_component(tree)
 
-        memoryMaps = self.get_all_memoryMap(component)
+            memoryMaps = self.get_all_memoryMap(component)
 
-        for memoryMap in memoryMaps:
-            comp_name = self.get_sanitized_element_name(component)
-            self.import_memoryMap(memoryMap, comp_name, remap_state)
+            for memoryMap in memoryMaps:
+                comp_name = self.get_sanitized_element_name(component)
+                self.import_memoryMap(memoryMap, comp_name, remap_state)
 
 
     def get_component(self, tree: ElementTree.ElementTree) -> ElementTree.Element:
@@ -336,6 +350,14 @@ class IPXACTImporter(RDLImporter):
 
         return C
 
+    def allow_definition(self, definition: comp.Component) -> bool:
+        return (self._name_filter_regex is None or
+                re.fullmatch(self._name_filter_regex, definition.type_name))
+
+    #override
+    def register_root_component(self, definition: comp.Component) -> None:
+        if self.allow_definition(definition):
+            super().register_root_component(definition)
 
     def parse_registerFile(self, registerFile: ElementTree.Element) -> Optional[comp.Regfile]:
         """
@@ -648,6 +670,11 @@ class IPXACTImporter(RDLImporter):
 
         if 'modifiedWriteValue' in d:
             self.assign_property(C, "onwrite", d['modifiedWriteValue'])
+        else:
+            # Non-volatile fields cannot be hardware writable. 'volatile'
+            # defaults to False.
+            if 'volatile' not in d or not d['volatile']:
+              self.assign_property(C, 'hw', rdltypes.AccessType.r)
 
         if 'enum_el' in d:
             enum_type = self.parse_enumeratedValues(d['enum_el'], C.inst_name + "_enum_t")
@@ -655,17 +682,6 @@ class IPXACTImporter(RDLImporter):
 
         if 'vendorExtensions' in d:
             C = self.field_vendorExtensions(d['vendorExtensions'], C)
-
-        # Guess what the hw access property might be based on context
-        volatile = d.get("volatile", False)
-        if sw_access == rdltypes.AccessType.r:
-            hw_access = rdltypes.AccessType.w
-        else:
-            if volatile:
-                hw_access = rdltypes.AccessType.rw
-            else:
-                hw_access = rdltypes.AccessType.r
-        self.assign_property(C, "hw", hw_access)
 
         return C
 
