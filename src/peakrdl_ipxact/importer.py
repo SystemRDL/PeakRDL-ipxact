@@ -39,7 +39,7 @@ class IPXACTImporter(RDLImporter):
         return self.default_src_ref
 
 
-    def import_file(self, path: str, remap_state: Optional[str] = None) -> None:
+    def import_file(self, path: str, remap_state: Optional[str] = None, filter: Optional[str] = None) -> None:
         """
         Import a single SPIRIT or IP-XACT file into the SystemRDL namespace.
 
@@ -61,16 +61,26 @@ class IPXACTImporter(RDLImporter):
         component = self.get_component(tree)
 
         memoryMaps = self.get_all_memoryMap(component)
+        self.busMasters = self.get_all_busInterfaces(component, True)
+        self.addressSpaces = self.get_all_addressSpace(component)
 
+        rootC = self.create_addrmap_definition('top')
         for memoryMap in memoryMaps:
+            name = self.get_sanitized_element_name(memoryMap)
+            if filter and filter != name:
+                continue
             comp_name = self.get_sanitized_element_name(component)
-            self.import_memoryMap(memoryMap, comp_name, remap_state)
+            comp = self.import_memoryMap(memoryMap, comp_name, remap_state)
 
+            comp_inst = self.instantiate_addrmap(comp, name, 0)
+            self.add_child(rootC, comp_inst)
+
+        self.register_root_component(rootC)
 
     def get_component(self, tree: ElementTree.ElementTree) -> ElementTree.Element:
         # Find <component> and determine namespace prefix
         root = tree.getroot()
-        if get_local_name(root) == "component":
+        if get_local_name(root).lower() == "component":
             component = root
             namespace = get_namespace(root)
             for ns_regex in VALID_NS_REGEXES:
@@ -102,6 +112,38 @@ class IPXACTImporter(RDLImporter):
 
         return memoryMap_s
 
+    def get_all_addressSpace(self, component: ElementTree.ElementTree) -> List[ElementTree.Element]:
+        # Find <addressSpaces>
+        addressSpaces_s = component.findall(self.ns+"addressSpaces")
+        if len(addressSpaces_s) != 1:
+            self.msg.fatal(
+                "'component' must contain exactly one 'addressSpaces' element",
+                self.src_ref
+            )
+        memoryMaps = addressSpaces_s[0]
+
+        # Find all <memoryMap>
+        addressSpace_s = memoryMaps.findall(self.ns+"addressSpace")
+
+        return addressSpace_s
+
+    def get_all_busInterfaces(self, component: ElementTree.ElementTree, is_master: bool) -> List[ElementTree.Element]:
+        busInterfaces_s = component.findall(self.ns+"busInterfaces")
+        if len(busInterfaces_s) != 1:
+            self.msg.fatal(
+                "'component' must contain exactly one 'busInterfaces' element",
+                self.src_ref
+            )
+        busInterfaces = busInterfaces_s[0]
+
+        # Find all <busInterface>
+        busInterface_s = busInterfaces.findall(self.ns+"busInterface")
+
+        def filter_master_or_slave(iface: ElementTree.ElementTree, is_master: bool):
+            return iface.find(self.ns+'master' if is_master else self.ns+'slave')
+        busInterface_s = [*filter(lambda e: filter_master_or_slave(e, is_master), busInterface_s)]
+
+        return busInterface_s
 
     def get_all_address_blocks(self, memoryMap: ElementTree.Element, remap_state: Optional[str]) -> List[ElementTree.Element]:
         """
@@ -123,8 +165,12 @@ class IPXACTImporter(RDLImporter):
 
         return addressBlocks
 
+    def get_all_subspace_map_blocks(self, memoryMap: ElementTree.Element) -> List[ElementTree.Element]:
+        subspaceMaps = memoryMap.findall(self.ns+"subspaceMap")
 
-    def import_memoryMap(self, memoryMap: ElementTree.Element, component_name: str, remap_state: Optional[str]) -> None:
+        return subspaceMaps
+
+    def import_memoryMap(self, memoryMap: ElementTree.Element, component_name: str, remap_state: Optional[str]) -> Optional[comp.Component]:
         # Schema:
         #     {nameGroup}
         #         name (required) --> inst_name
@@ -184,13 +230,27 @@ class IPXACTImporter(RDLImporter):
             if child:
                 self.add_child(C_def, child)
 
+        subspaceMaps = self.get_all_subspace_map_blocks(memoryMap)
+        if subspaceMaps and addressBlocks:
+            self.msg.fatal('Both subspace map and addr map are present. This scenario is unsupported')
+            return None
+
+        # De-duplicate automatically - not the cleanest way, but sufficient
+        # since we use masterRefs to describe subspaceMaps for clarity, and not their real names
+        # (which are non-descriptive)
+        instance_uniq_maps = set()
+        for subspaceMap in subspaceMaps:
+            child = self.parse_subspaceMap(subspaceMap, name_prefix, instance_uniq_maps)
+            if child:
+                self.add_child(C_def, child)
+
         if 'vendorExtensions' in d:
             C_def = self.memoryMap_vendorExtensions(d['vendorExtensions'], C_def)
 
         if not C_def.children:
             # memoryMap contains no addressBlocks. Skip
             self.msg.warning(
-                "Discarding memoryMap '%s' because it does not contain any child addressBlocks"
+                "Discarding memoryMap '%s' because it does not contain any child addressBlocks or subspaceMap"
                 % name,
                 self.src_ref
             )
@@ -202,9 +262,9 @@ class IPXACTImporter(RDLImporter):
                     % (name, "\n\t".join(self.remap_states_seen)),
                     self.src_ref
                 )
-            return
+            return None
 
-        self.register_root_component(C_def)
+        return C_def
 
 
     def parse_addressBlock(self, addressBlock: ElementTree.Element, name_prefix:str) -> Optional[Union[comp.Addrmap, comp.Mem]]:
@@ -336,6 +396,54 @@ class IPXACTImporter(RDLImporter):
 
         return C
 
+    def get_address_space_for_bus_iface(self, interface_name: str, interfaces: list[ElementTree.Element]):
+        for iface in interfaces:
+            iface_name = get_text(iface.find(self.ns+'name'))
+            if iface_name != interface_name:
+                continue
+            # Matched name of bus interface
+            address_ref = get_prop_or_none(iface.find(self.ns+'master/'+self.ns+'addressSpaceRef'), 'addressSpaceRef')
+            addr_space = next(filter(lambda e: get_text(e.find(self.ns+'name')) == address_ref, self.addressSpaces))
+            return addr_space, self.parse_integer(get_text(addr_space.find(self.ns+'range')))
+        return 0, 0
+
+    def parse_subspaceMap(self, subspaceMap: ElementTree.Element, name_prefix: str, inst_uniq_names: set) -> Optional[comp.Addrmap]:
+        d = self.flatten_element_values(subspaceMap)
+        name = self.get_sanitized_element_name(subspaceMap)
+
+        type_name = name_prefix + name
+
+        C_def = self.create_addrmap_definition(type_name)
+
+        inst_name = subspaceMap.get(self.ns+'masterRef')
+        if inst_name in inst_uniq_names:
+            name_parts = inst_name.split('_')
+            number_suffix =  name_parts[-1]
+            if number_suffix.isnumeric():
+                number_suffix = int(number_suffix) + 1
+            else:
+                number_suffix = 1
+
+            new_name = '_'.join(name_parts) + '_' + str(number_suffix)
+            self.msg.warning(f'Duplicate entry named {inst_name}, will be automatically renamed to {new_name}')
+            inst_name = new_name
+        inst_uniq_names.add(inst_name)
+
+        C = self.instantiate_addrmap(
+            C_def,
+            inst_name, self.AU_to_bytes(d['baseAddress'])
+        )
+
+        R_def = self.create_reg_definition()
+        R = self.instantiate_reg(R_def, 'PLACEHOLDER_REG', 0)
+        regwidth = roundup_pow2(self.parse_integer(subspaceMap.find(self.ns+'baseAddress').get(self.ns+'maximum')) - d['baseAddress'])
+        self.assign_property(R, 'regwidth', regwidth)
+        F_def = self.create_field_definition()
+        F = self.instantiate_field(F_def, 'PLACEHOLDER_FIELD', 0, 1)
+        self.add_child(R, F)
+        self.add_child(C, R)
+
+        return C
 
     def parse_registerFile(self, registerFile: ElementTree.Element) -> Optional[comp.Regfile]:
         """
@@ -789,6 +897,9 @@ class IPXACTImporter(RDLImporter):
             elif local_name in ("baseAddress", "addressOffset", "range", "width", "size", "bitOffset", "bitWidth"):
                 # Parse integer types
                 d[local_name] = self.parse_integer(get_text(child))
+                if local_name == "baseAddress":
+                    if max_hint := child.get(self.ns+'maximum'):
+                        d['maximumHint'] = self.parse_integer(max_hint)
 
             elif local_name in ("isPresent", "volatile", "testable", "reserved"):
                 # Parse boolean types

@@ -82,10 +82,16 @@ class Importer(ImporterPlugin):
             default=None,
             help="Optional remapState string that is used to select memoryRemap regions that are tagged under a specific remap state."
         )
+        arg_group.add_argument(
+            "--filter",
+            default=None,
+            help="Include only one specific namespace when generating the RDL",
+        )
 
     def do_import(self, rdlc: 'RDLCompiler', options: 'argparse.Namespace', path: str) -> None:
         i = IPXACTImporter(rdlc)
         i.import_file(
             path,
-            remap_state=options.remap_state
+            remap_state=options.remap_state,
+            filter=options.filter,
         )
