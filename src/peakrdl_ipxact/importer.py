@@ -39,7 +39,7 @@ class IPXACTImporter(RDLImporter):
         return self.default_src_ref
 
 
-    def import_file(self, path: str, remap_state: Optional[str] = None, filter: Optional[str] = None) -> None:
+    def import_file(self, path: str, remap_state: Optional[str] = None, filter: Optional[str] = None, top_name: Optional[str] = None) -> None:
         """
         Import a single SPIRIT or IP-XACT file into the SystemRDL namespace.
 
@@ -64,7 +64,7 @@ class IPXACTImporter(RDLImporter):
         self.busMasters = self.get_all_busInterfaces(component, True)
         self.addressSpaces = self.get_all_addressSpace(component)
 
-        rootC = self.create_addrmap_definition('top')
+        rootC = None if not top_name else self.create_addrmap_definition(top_name)
         for memoryMap in memoryMaps:
             name = self.get_sanitized_element_name(memoryMap)
             if filter and filter != name:
@@ -72,10 +72,14 @@ class IPXACTImporter(RDLImporter):
             comp_name = self.get_sanitized_element_name(component)
             comp = self.import_memoryMap(memoryMap, comp_name, remap_state)
 
-            comp_inst = self.instantiate_addrmap(comp, name, 0)
-            self.add_child(rootC, comp_inst)
+            if rootC:
+                comp_inst = self.instantiate_addrmap(comp, name, 0)
+                self.add_child(rootC, comp_inst)
 
-        self.register_root_component(rootC)
+        if rootC:
+            self.register_root_component(rootC)
+        else:
+            self.register_root_component(comp)
 
     def get_component(self, tree: ElementTree.ElementTree) -> ElementTree.Element:
         # Find <component> and determine namespace prefix

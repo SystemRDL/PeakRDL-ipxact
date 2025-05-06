@@ -87,6 +87,12 @@ class Importer(ImporterPlugin):
             default=None,
             help="Include only one specific namespace when generating the RDL",
         )
+        arg_group.add_argument(
+            "--top-name",
+            default=None,
+            type=str,
+            help="Top level component name",
+        )
 
     def do_import(self, rdlc: 'RDLCompiler', options: 'argparse.Namespace', path: str) -> None:
         i = IPXACTImporter(rdlc)
@@ -94,4 +100,5 @@ class Importer(ImporterPlugin):
             path,
             remap_state=options.remap_state,
             filter=options.filter,
+            top_name=options.top_name,
         )
