@@ -438,14 +438,11 @@ class IPXACTImporter(RDLImporter):
             inst_name, self.AU_to_bytes(d['baseAddress'])
         )
 
-        R_def = self.create_reg_definition()
-        R = self.instantiate_reg(R_def, 'PLACEHOLDER_REG', 0)
-        regwidth = roundup_pow2(self.parse_integer(subspaceMap.find(self.ns+'baseAddress').get(self.ns+'maximum')) - d['baseAddress'])
-        self.assign_property(R, 'regwidth', regwidth)
-        F_def = self.create_field_definition()
-        F = self.instantiate_field(F_def, 'PLACEHOLDER_FIELD', 0, 1)
-        self.add_child(R, F)
-        self.add_child(C, R)
+        memwidth = self.parse_integer(subspaceMap.find(self.ns+'baseAddress').get(self.ns+'maximum')) - d['baseAddress']
+        M_def = self.create_mem_definition()
+        M = self.instantiate_mem(M_def, 'PLACEHOLDER_MEM', 0)
+        self.assign_property(M, 'memwidth', memwidth)
+        self.add_child(C, M)
 
         return C
 
