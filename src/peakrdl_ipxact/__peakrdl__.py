@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING
 import re
 
-from peakrdl.plugins.importer import ImporterPlugin #pylint: disable=import-error
-from peakrdl.plugins.exporter import ExporterSubcommandPlugin #pylint: disable=import-error
+from peakrdl.plugins.importer import ImporterPlugin
+from peakrdl.plugins.exporter import ExporterSubcommandPlugin
 
 from .exporter import IPXACTExporter, Standard
 from .importer import IPXACTImporter
