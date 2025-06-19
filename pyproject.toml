@@ -15,7 +15,7 @@ authors = [
 ]
 description = "Import and export IP-XACT XML to/from the systemrdl-compiler register model"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = {text = "LGPLv3"}
 keywords = [
     "SystemRDL", "PeakRDL", "CSR", "compiler", "tool", "registers", "generator",
     "IP-XACT",
@@ -26,7 +26,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
 ]
