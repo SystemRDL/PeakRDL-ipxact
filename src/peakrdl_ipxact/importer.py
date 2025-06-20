@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any, Type, Union, Set
+from typing import Optional, List, Dict, Any, Type, Union, Set, TypeVar
 import re
 
 from xml.etree import ElementTree
@@ -10,6 +10,7 @@ from systemrdl import component as comp
 
 from . import typemaps
 
+CT = TypeVar("CT", bound=comp.Component)
 
 # Expected IP-XACT namespaces. This parser is not strict about the exact version.
 VALID_NS_REGEXES = [
@@ -19,8 +20,9 @@ VALID_NS_REGEXES = [
 ]
 
 class IPXACTImporter(RDLImporter):
+    ns: str
 
-    def __init__(self, compiler: RDLCompiler):
+    def __init__(self, compiler: RDLCompiler) -> None:
         """
         Parameters
         ----------
@@ -29,10 +31,9 @@ class IPXACTImporter(RDLImporter):
         """
 
         super().__init__(compiler)
-        self.ns = None # type: str
         self._addressUnitBits = 8
         self._current_addressBlock_access = rdltypes.AccessType.rw
-        self.remap_states_seen = set() # type: Set[str]
+        self.remap_states_seen: Set[str] = set()
 
     @property
     def src_ref(self) -> SourceRefBase:
@@ -58,18 +59,23 @@ class IPXACTImporter(RDLImporter):
 
         tree = ElementTree.parse(path)
 
-        component = self.get_component(tree)
+        component = self.get_component(tree) # type: ignore
 
         memoryMaps = self.get_all_memoryMap(component)
 
+        comp_name = self.get_sanitized_element_name(component)
+        if not comp_name:
+            self.msg.fatal("component is missing required tag 'name'", self.src_ref)
+
         for memoryMap in memoryMaps:
-            comp_name = self.get_sanitized_element_name(component)
             self.import_memoryMap(memoryMap, comp_name, remap_state)
 
 
     def get_component(self, tree: ElementTree.ElementTree) -> ElementTree.Element:
         # Find <component> and determine namespace prefix
         root = tree.getroot()
+        assert root is not None
+
         if get_local_name(root) == "component":
             component = root
             namespace = get_namespace(root)
@@ -116,6 +122,8 @@ class IPXACTImporter(RDLImporter):
         memoryRemaps = memoryMap.findall(self.ns+"memoryRemap")
         for memoryRemap in memoryRemaps:
             this_remapState = memoryRemap.get(self.ns+"state")
+            if this_remapState is None:
+                continue
             self.remap_states_seen.add(this_remapState)
             if this_remapState == remap_state:
                 remap_addressBlocks = memoryRemap.findall(self.ns+"addressBlock")
@@ -239,6 +247,8 @@ class IPXACTImporter(RDLImporter):
 
         d = self.flatten_element_values(addressBlock)
         name = self.get_sanitized_element_name(addressBlock)
+        if not name:
+            self.msg.fatal("addressBlock is missing required tag 'name'", self.src_ref)
 
         if d.get('usage', None) == "reserved":
             # 1685-2014 6.9.4.2-a.1.iii: defines the entire range of the
@@ -257,6 +267,7 @@ class IPXACTImporter(RDLImporter):
         # Create named component definition
         is_memory = d.get('usage', None) == "memory"
         type_name = name_prefix + name
+        C_def: Union[comp.Mem, comp.Addrmap]
         if is_memory:
             C_def = self.create_mem_definition(type_name)
         else:
@@ -295,9 +306,9 @@ class IPXACTImporter(RDLImporter):
                 if R:
                     self.add_child(C_def, R)
             elif local_name == "registerFile" and not is_memory:
-                R = self.parse_registerFile(child_el)
-                if R:
-                    self.add_child(C_def, R)
+                RF = self.parse_registerFile(child_el)
+                if RF:
+                    self.add_child(C_def, RF)
             else:
                 self.msg.error(
                     "Invalid child element <%s> found in <%s:addressBlock>"
@@ -324,17 +335,19 @@ class IPXACTImporter(RDLImporter):
         # Also convert to an instance, since this will be instantiated into the
         # wrapper that represents the memoryMap
         if is_memory:
-            C = self.instantiate_mem(
+            assert isinstance(C_def, comp.Mem)
+            mem = self.instantiate_mem(
                 C_def,
                 name, self.AU_to_bytes(d['baseAddress'])
             )
+            return mem
         else:
-            C = self.instantiate_addrmap(
+            assert isinstance(C_def, comp.Addrmap)
+            am = self.instantiate_addrmap(
                 C_def,
                 name, self.AU_to_bytes(d['baseAddress'])
             )
-
-        return C
+            return am
 
 
     def parse_registerFile(self, registerFile: ElementTree.Element) -> Optional[comp.Regfile]:
@@ -361,6 +374,8 @@ class IPXACTImporter(RDLImporter):
 
         d = self.flatten_element_values(registerFile)
         name = self.get_sanitized_element_name(registerFile)
+        if not name:
+            self.msg.fatal("registerFile is missing required tag 'name'", self.src_ref)
 
         # Check for required values
         required = {'addressOffset', 'range'}
@@ -402,9 +417,9 @@ class IPXACTImporter(RDLImporter):
                 if R:
                     self.add_child(C, R)
             elif local_name == "registerFile":
-                R = self.parse_registerFile(child_el)
-                if R:
-                    self.add_child(C, R)
+                RF = self.parse_registerFile(child_el)
+                if RF:
+                    self.add_child(C, RF)
             else:
                 self.msg.error(
                     "Invalid child element <%s> found in <%s:registerFile>"
@@ -456,6 +471,8 @@ class IPXACTImporter(RDLImporter):
 
         d = self.flatten_element_values(register)
         name = self.get_sanitized_element_name(register)
+        if not name:
+            self.msg.fatal("register is missing required tag 'name'", self.src_ref)
 
         # Check for required values
         required = {'addressOffset', 'size'}
@@ -511,6 +528,8 @@ class IPXACTImporter(RDLImporter):
             if local_name == "field":
                 # This XML element is a field
                 field_name = self.get_sanitized_element_name(child_el)
+                if not field_name:
+                    self.msg.fatal("field is missing required tag 'name'", self.src_ref)
                 field_tuples.append((field_name, child_el))
                 if field_name in field_names:
                     field_name_collisions.add(field_name)
@@ -650,6 +669,7 @@ class IPXACTImporter(RDLImporter):
             self.assign_property(C, "onwrite", d['modifiedWriteValue'])
 
         if 'enum_el' in d:
+            assert C.inst_name is not None
             enum_type = self.parse_enumeratedValues(d['enum_el'], C.inst_name + "_enum_t")
             self.assign_property(C, "encode", enum_type)
 
@@ -700,7 +720,7 @@ class IPXACTImporter(RDLImporter):
                 v *= multiplier[m.group(2).upper()]
             return v
 
-        m = re.fullmatch(r"\d*'h([0-9a-f]+)", s, re.I) # type: ignore [unreachable]
+        m = re.fullmatch(r"\d*'h([0-9a-f]+)", s, re.I)
         if m:
             return int(m.group(1), 16)
 
@@ -890,6 +910,8 @@ class IPXACTImporter(RDLImporter):
                     d[local_name] = self.parse_integer(get_text(child))
 
             name = self.get_sanitized_element_name(enumeratedValue)
+            if not name:
+                self.msg.fatal("enumeratedValue is missing required tag 'name'", self.src_ref)
 
             # Check for required values
             required = {'value'}
@@ -946,23 +968,23 @@ class IPXACTImporter(RDLImporter):
         return byte_units
 
 
-    def memoryMap_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: comp.Component) -> comp.Component:
+    def memoryMap_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: CT) -> CT:
         #pylint: disable=unused-argument
         return component
 
-    def addressBlock_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: comp.Component) -> comp.Component:
+    def addressBlock_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: CT) -> CT:
         #pylint: disable=unused-argument
         return component
 
-    def registerFile_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: comp.Component) -> comp.Component:
+    def registerFile_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: CT) -> CT:
         #pylint: disable=unused-argument
         return component
 
-    def register_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: comp.Component) -> comp.Component:
+    def register_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: CT) -> CT:
         #pylint: disable=unused-argument
         return component
 
-    def field_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: comp.Component) -> comp.Component:
+    def field_vendorExtensions(self, vendorExtensions: ElementTree.Element, component: CT) -> CT:
         #pylint: disable=unused-argument
         return component
 

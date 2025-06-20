@@ -1,3 +1,4 @@
+from typing import Optional
 from systemrdl import rdltypes
 
 # sw <--> ipxact:access
@@ -13,9 +14,9 @@ def access_from_sw(sw: rdltypes.AccessType) -> str:
     for sw_entry, access_entry in ACCESS_MAP:
         if sw == sw_entry:
             return access_entry
-    return None
+    raise RuntimeError("Impossible")
 
-def sw_from_access(access: str) -> rdltypes.AccessType:
+def sw_from_access(access: str) -> Optional[rdltypes.AccessType]:
     for sw_entry, access_entry in ACCESS_MAP:
         if access == access_entry:
             return sw_entry
@@ -39,9 +40,9 @@ def mwv_from_onwrite(onwrite: rdltypes.OnWriteType) -> str:
     for onwrite_entry, mwv_entry in MWV_MAP:
         if onwrite == onwrite_entry:
             return mwv_entry
-    return None
+    raise RuntimeError("Impossible")
 
-def onwrite_from_mwv(mwv: str) -> rdltypes.OnWriteType:
+def onwrite_from_mwv(mwv: str) -> Optional[rdltypes.OnWriteType]:
     for onwrite_entry, mwv_entry in MWV_MAP:
         if mwv == mwv_entry:
             return onwrite_entry
@@ -59,9 +60,9 @@ def readaction_from_onread(onread: rdltypes.OnReadType) -> str:
     for onread_entry, read_action_entry in READ_ACTION_MAP:
         if onread == onread_entry:
             return read_action_entry
-    return None
+    raise RuntimeError("Impossible")
 
-def onread_from_readaction(readaction: str) -> rdltypes.OnReadType:
+def onread_from_readaction(readaction: str) -> Optional[rdltypes.OnReadType]:
     for onread_entry, read_action_entry in READ_ACTION_MAP:
         if readaction == read_action_entry:
             return onread_entry

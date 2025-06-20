@@ -47,7 +47,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install pytest
+          python -m pip install -r tests/requirements.txt
           sudo apt update
           sudo apt install libxml2-utils
           tests/schema/1685-2014/download_schema.sh
@@ -82,7 +82,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install pylint
+          python -m pip install -r tests/requirements.txt
 
       - name: Install
         run: |
@@ -104,7 +104,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install mypy
+          python -m pip install -r tests/requirements.txt
 
       - name: Install
         run: |

@@ -30,6 +30,9 @@ class Standard(enum.IntEnum):
 
 #===============================================================================
 class IPXACTExporter:
+    msg: 'MessageHandler'
+    doc: minidom.Document
+
     def __init__(self, **kwargs: Any) -> None:
         """
         Constructor for the exporter object.
@@ -51,7 +54,6 @@ class IPXACTExporter:
             String to use for line breaks. Defaults to a newline (``\\n``).
         """
 
-        self.msg = None # type: MessageHandler
 
         self.vendor = kwargs.pop("vendor", None) or "example.org"
         self.library = kwargs.pop("library", None) or "mylibrary"
@@ -59,7 +61,6 @@ class IPXACTExporter:
         self.standard = kwargs.pop("standard", None) or Standard.IEEE_1685_2014
         self.xml_indent = kwargs.pop("xml_indent", None) or "  "
         self.xml_newline = kwargs.pop("xml_newline", None) or "\n"
-        self.doc = None # type: minidom.Document
         self._max_width = None # type: Optional[int]
 
         # Check for stray kwargs
@@ -222,7 +223,7 @@ class IPXACTExporter:
             self.add_value(parent, self.ns + "description", description)
 
     #---------------------------------------------------------------------------
-    def add_registerData(self, parent: minidom.Element, node: RegNode) -> None:
+    def add_registerData(self, parent: minidom.Element, node: AddressableNode) -> None:
         if self.standard == Standard.IEEE_1685_2009:
             # registers must all be listed before register files
             for child in node.children(skip_not_present=self.skip_not_present):
@@ -339,7 +340,7 @@ class IPXACTExporter:
         if self.standard.supports_isPresent and not node.get_property("ispresent"):
             self.add_value(registerFile, self.ns + "isPresent", "0")
 
-        if node.is_array:
+        if node.array_dimensions:
             for dim in node.array_dimensions:
                 self.add_value(registerFile, self.ns + "dim", "%d" % dim)
 
@@ -350,6 +351,7 @@ class IPXACTExporter:
         if node.is_array:
             # For arrays, ipxact:range also defines the increment between indexes
             # Must use stride instead
+            assert node.array_stride is not None
             self.add_value(registerFile, self.ns + "range", self.hex_str(node.array_stride))
         else:
             self.add_value(registerFile, self.ns + "range", self.hex_str(node.size))
@@ -377,7 +379,7 @@ class IPXACTExporter:
         if self.standard.supports_isPresent and not node.get_property("ispresent"):
             self.add_value(register, self.ns + "isPresent", "0")
 
-        if node.is_array:
+        if node.array_dimensions:
             if node.array_stride != (node.get_property("regwidth") / 8):
                 self.msg.fatal(
                     "IP-XACT does not support register arrays whose stride is larger then the register's size",

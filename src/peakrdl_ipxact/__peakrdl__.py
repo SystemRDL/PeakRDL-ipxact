@@ -17,7 +17,7 @@ class Exporter(ExporterSubcommandPlugin):
     short_desc = "Export the register model to IP-XACT"
 
 
-    def add_exporter_arguments(self, arg_group: 'argparse.ArgumentParser') -> None:
+    def add_exporter_arguments(self, arg_group: 'argparse._ActionsContainer') -> None:
         arg_group.add_argument(
             "--vendor",
             default="example.org",
@@ -73,9 +73,9 @@ class Importer(ImporterPlugin):
         with open(path, "r", encoding="utf-8") as f:
             if re.search(r"<(spirit|ipxact):component\b", f.read()):
                 return True
-        return False # type: ignore [unreachable]
+        return False
 
-    def add_importer_arguments(self, arg_group: 'argparse.ArgumentParser') -> None:
+    def add_importer_arguments(self, arg_group: 'argparse._ActionsContainer') -> None:
         arg_group.add_argument(
             "--remap-state",
             metavar="STATE",
