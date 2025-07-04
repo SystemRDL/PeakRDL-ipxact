@@ -40,7 +40,7 @@ class IPXACTImporter(RDLImporter):
         return self.default_src_ref
 
 
-    def import_file(self, path: str, remap_state: Optional[str] = None) -> None:
+    def import_file(self, path: str, remap_state: Optional[str] = None, allow_empty_regs: Optional[bool] = False) -> None:
         """
         Import a single SPIRIT or IP-XACT file into the SystemRDL namespace.
 
@@ -56,6 +56,7 @@ class IPXACTImporter(RDLImporter):
 
         self._addressUnitBits = 8
         self.remap_states_seen = set()
+        self.allow_empty_regs = allow_empty_regs
 
         tree = ElementTree.parse(path)
 
@@ -553,6 +554,17 @@ class IPXACTImporter(RDLImporter):
                 uniquify_field_name
             )
             if field is not None:
+                self.add_child(C, field)
+        if len(field_tuples) == 0:
+            if self.allow_empty_regs:
+                # Create component instance
+                field = self.instantiate_field(
+                    self.create_field_definition(),
+                    "res0", 0, d['size']
+                )
+                self.assign_property(field, "sw", rdltypes.AccessType.r)
+                self.assign_property(field, "hw", rdltypes.AccessType.na)
+                self.assign_property(field, "reset", reg_reset_value)
                 self.add_child(C, field)
 
 
