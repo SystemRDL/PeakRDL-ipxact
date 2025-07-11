@@ -1,7 +1,14 @@
+import math
 from typing import Optional, List, Dict, Any, Type, Union, Set, TypeVar
 import re
 
-from xml.etree import ElementTree
+lxml = False
+try:
+    from lxml import etree as ElementTree
+    lxml = True
+except:
+    from xml.etree import ElementTree
+    lxml = False
 
 from systemrdl import RDLCompiler, RDLImporter
 from systemrdl import rdltypes
@@ -14,9 +21,9 @@ CT = TypeVar("CT", bound=comp.Component)
 
 # Expected IP-XACT namespaces. This parser is not strict about the exact version.
 VALID_NS_REGEXES = [
-    re.compile(r"\{http[s]?:\/\/www\.spiritconsortium\.org\/XMLSchema\/SPIRIT", re.IGNORECASE),
-    re.compile(r"\{http[s]?:\/\/www\.accellera\.org/XMLSchema/spirit\/1685-2009", re.IGNORECASE),
-    re.compile(r"\{http[s]?:\/\/www\.accellera\.org\/XMLSchema\/IPXACT", re.IGNORECASE),
+    ("spirit", re.compile(r"\{http[s]?:\/\/www\.spiritconsortium\.org\/XMLSchema\/SPIRIT", re.IGNORECASE)),
+    ("spirit", re.compile(r"\{http[s]?:\/\/www\.accellera\.org/XMLSchema/spirit\/1685-2009", re.IGNORECASE)),
+    ("ipxact", re.compile(r"\{http[s]?:\/\/www\.accellera\.org\/XMLSchema\/IPXACT", re.IGNORECASE)),
 ]
 
 class IPXACTImporter(RDLImporter):
@@ -34,6 +41,7 @@ class IPXACTImporter(RDLImporter):
         self._addressUnitBits = 8
         self._current_addressBlock_access = rdltypes.AccessType.rw
         self.remap_states_seen: Set[str] = set()
+        self.parameters = {}
 
     @property
     def src_ref(self) -> SourceRefBase:
@@ -61,6 +69,7 @@ class IPXACTImporter(RDLImporter):
         tree = ElementTree.parse(path)
 
         component = self.get_component(tree) # type: ignore
+        self.get_parameters(component)
 
         memoryMaps = self.get_all_memoryMap(component)
 
@@ -74,25 +83,57 @@ class IPXACTImporter(RDLImporter):
 
     def get_component(self, tree: ElementTree.ElementTree) -> ElementTree.Element:
         # Find <component> and determine namespace prefix
-        root = tree.getroot()
-        assert root is not None
+        self.root = tree.getroot()
+        assert self.root is not None
 
-        if get_local_name(root) == "component":
-            component = root
-            namespace = get_namespace(root)
-            for ns_regex in VALID_NS_REGEXES:
+        if get_local_name(self.root) == "component":
+            component = self.root
+            namespace = get_namespace(self.root)
+            self.NSMAP = {}
+            for (prefix, ns_regex) in VALID_NS_REGEXES:
                 if ns_regex.match(namespace):
                     self.ns = namespace
+                    self.prefix = prefix
+                    self.NSMAP[prefix] = namespace[1:-1]
                     break
             else:
                 self.msg.fatal("Unrecognized namespace URI: %s" % namespace, self.src_ref)
+            id_map = {
+                el.get("{http://www.spiritconsortium.org/XMLSchema/SPIRIT/1.4}id"): el
+                for el in component.xpath(".//spirit:*[@spirit:id]", namespaces=self.NSMAP)
+            }
+            ns = ElementTree.FunctionNamespace(None)
+            ns['xid'] = make_xid(id_map)
+            ns['spirit_pow'] = spirit_pow
+            ns['spirit_log'] = spirit_log
         else:
             self.msg.fatal(
                 "Could not find a 'component' element",
                 self.src_ref
             )
+        for (p, uri) in self.root.nsmap.items():
+            if uri == namespace[1:-1]:
+                self.prefix = p
+                break
         return component
 
+    # The reason we don't return a dict but rather update it one by one,
+    # allows each parameter to depend on previously defined parameters
+    # Note: We might be able to get away with simply getting them using xpath
+    # when needed instead of precalculating them
+    def get_parameters(self, component: ElementTree.Element) -> None:
+        #parameters_s = component.findall(self.ns+"parameters")
+        #if len(parameters_s) != 1:
+        #    self.msg.fatal(
+        #        "'component' must contain exactly one 'parameters' element",
+        #        self.src_ref
+        #    )
+        #params = parameters_s[0]
+        #for p in params.iter(self.ns+"parameter"):
+        #    n = p.find(self.ns+"name").text
+        #    v = self.get_text(p.find(self.ns+"value"))
+        #    self.parameters[n] = v
+        pass
 
     def get_all_memoryMap(self, component: ElementTree.Element) -> List[ElementTree.Element]:
         # Find <memoryMaps>
@@ -173,7 +214,7 @@ class IPXACTImporter(RDLImporter):
 
         aub = memoryMap.find(self.ns+"addressUnitBits")
         if aub is not None:
-            self._addressUnitBits = self.parse_integer(get_text(aub))
+            self._addressUnitBits = self.parse_integer(self.get_text(aub))
 
             if (self._addressUnitBits < 8) or (self._addressUnitBits % 8 != 0):
                 self.msg.fatal(
@@ -719,13 +760,14 @@ class IPXACTImporter(RDLImporter):
         s = s.strip()
 
         multiplier = {
+            ".0": 1,
             "K": 1024,
             "M": 1024*1024,
             "G": 1024*1024*1024,
             "T": 1024*1024*1024*1024
         }
 
-        m = re.fullmatch(r'(-?\d+)(K|M|G|T)?', s, re.I)
+        m = re.fullmatch(r'(-?\d+)(\.0|K|M|G|T)?', s, re.I)
         if m:
             v = int(m.group(1))
             if m.group(2):
@@ -757,7 +799,7 @@ class IPXACTImporter(RDLImporter):
         if m:
             return int(m.group(1), 8)
 
-        raise ValueError
+        raise ValueError("Unable to parse integer value '%s'" % s)
 
 
     def parse_boolean(self, s: str) -> bool:
@@ -789,7 +831,7 @@ class IPXACTImporter(RDLImporter):
         return re.sub(
             r'[:\-.]',
             "_",
-            get_text(name_el).strip()
+            self.get_text(name_el).strip()
         )
 
 
@@ -812,19 +854,19 @@ class IPXACTImporter(RDLImporter):
             local_name = get_local_name(child)
             if local_name in ("displayName", "usage"):
                 # Copy string types directly, but stripped
-                d[local_name] = get_text(child).strip()
+                d[local_name] = self.get_text(child).strip()
 
             elif local_name == "description":
                 # Copy description string types unmodified
-                d[local_name] = get_text(child)
+                d[local_name] = self.get_text(child)
 
             elif local_name in ("baseAddress", "addressOffset", "range", "width", "size", "bitOffset", "bitWidth"):
                 # Parse integer types
-                d[local_name] = self.parse_integer(get_text(child))
+                d[local_name] = self.parse_integer(self.get_text(child))
 
             elif local_name in ("isPresent", "volatile", "testable", "reserved"):
                 # Parse boolean types
-                d[local_name] = self.parse_boolean(get_text(child))
+                d[local_name] = self.parse_boolean(self.get_text(child))
 
             elif local_name in ("register", "registerFile", "field"):
                 # Child elements that need to be parsed elsewhere
@@ -841,14 +883,14 @@ class IPXACTImporter(RDLImporter):
 
                 value_el = reset.find(self.ns + "value")
                 if value_el is not None:
-                    d['reset.value'] = self.parse_integer(get_text(value_el))
+                    d['reset.value'] = self.parse_integer(self.get_text(value_el))
 
                 mask_el = reset.find(self.ns + "mask")
                 if mask_el is not None:
-                    d['reset.mask'] = self.parse_integer(get_text(mask_el))
+                    d['reset.mask'] = self.parse_integer(self.get_text(mask_el))
 
             elif local_name == "access":
-                s = get_text(child).strip()
+                s = self.get_text(child).strip()
                 sw = typemaps.sw_from_access(s)
                 if sw is None:
                     self.msg.error(
@@ -860,14 +902,14 @@ class IPXACTImporter(RDLImporter):
 
             elif local_name == "dim":
                 # Accumulate array dimensions
-                dim = self.parse_integer(get_text(child))
+                dim = self.parse_integer(self.get_text(child))
                 if 'dim' in d:
                     d['dim'].append(dim)
                 else:
                     d['dim'] = [dim]
 
             elif local_name == "readAction":
-                s = get_text(child).strip()
+                s = self.get_text(child).strip()
                 onread = typemaps.onread_from_readaction(s)
                 if onread is None:
                     self.msg.error(
@@ -878,7 +920,7 @@ class IPXACTImporter(RDLImporter):
                     d['readAction'] = onread
 
             elif local_name == "modifiedWriteValue":
-                s = get_text(child).strip()
+                s = self.get_text(child).strip()
                 onwrite = typemaps.onwrite_from_mwv(s)
                 if onwrite is None:
                     self.msg.error(
@@ -915,11 +957,11 @@ class IPXACTImporter(RDLImporter):
             for child in enumeratedValue.iterfind("*"):
                 local_name = get_local_name(child)
                 if local_name in ("name", "displayName"):
-                    d[local_name] = get_text(child).strip()
+                    d[local_name] = self.get_text(child).strip()
                 elif local_name == "description":
-                    d[local_name] = get_text(child)
+                    d[local_name] = self.get_text(child)
                 elif local_name == "value":
-                    d[local_name] = self.parse_integer(get_text(child))
+                    d[local_name] = self.parse_integer(self.get_text(child))
 
             name = self.get_sanitized_element_name(enumeratedValue)
             if not name:
@@ -1000,10 +1042,22 @@ class IPXACTImporter(RDLImporter):
         #pylint: disable=unused-argument
         return component
 
-#===============================================================================
-def get_text(el: ElementTree.Element) -> str:
-    return "".join(el.itertext())
+    def get_text(self, el: ElementTree.Element) -> str:
+        r = el.attrib.get(self.ns+'resolve')
+        if r == 'dependent':
+            if lxml:
+                s = el.attrib.get(self.ns+'dependency')
+                return str(self.root.xpath(rewrite_id_calls(s), namespaces=self.NSMAP))
+            else:
+                raise ImportError("Cannot use dependent values without lxml.")
+        elif r == 'user':
+            # In the future, in case this is a parameter, read from a command-line supplied value
+            return "".join(el.itertext())
+        else:
+            #  No 'resolve' attr, or it has an 'immediate' value
+            return "".join(el.itertext())
 
+#===============================================================================
 def roundup_pow2(x: int) -> int:
     return 1<<(x-1).bit_length()
 
@@ -1014,3 +1068,100 @@ def get_namespace(el: ElementTree.Element) -> str:
 def get_local_name(el: ElementTree.Element) -> str:
     # Returns the non-namespace part of this element's tag
     return el.tag.split("}")[1]
+
+def rewrite_id_calls(s):
+    # Base case: no quotes → safe to rewrite
+    match = re.search(r"['\"]", s)
+    if not match:
+        return re.sub(r'(?<![\w:])id\(', 'xid(', re.sub(r'([\w]+):([\w]+)\(', r'\1_\2(', s))
+
+    q = match.group()  # Quote character: ' or "
+    i = match.start()
+    head = s[:i]
+    rest = s[i + 1:]
+    tail_parts = rest.split(q, 1)
+    # only needed to handle unmatched quotes which is illegal
+    # so in case of garbage in we produce garbage out
+    #if len(tail_parts) < 2:
+    #    # Unmatched quote—rewrite entire string
+    #    return re.sub(r'(?<![\w:])id\(', 'xid(', s)
+
+    mid, tail = tail_parts
+    return q.join((rewrite_id_calls(head), mid, rewrite_id_calls(tail)))
+
+def make_xid(id_map):
+    def xid(context, value):
+        if isinstance(value, list):
+            value = value[0] if value else ''
+        if isinstance(value, ElementTree._Element):
+            value = value.text
+        if isinstance(value, str):
+            value = value.strip()
+            return [id_map.get(value)] if value in id_map else []
+        return []
+    return xid
+
+# spirit:decode
+def spirit_decode(context, arg: str):
+    arg = arg.upper()
+    if arg.startswith('0x'):
+        return int(arg[2:], 16)
+    elif arg.startswith('#'):
+        return int(arg[1:], 16)
+    elif arg.endswith('K'):
+        return int(arg[:-1]) * 1024
+    elif arg.endswith('M'):
+        return int(arg[:-1]) * 1024 * 1024
+    elif arg.endswith('G'):
+        return int(arg[:-1]) * 1024 * 1024 * 1024
+    elif arg.endswith('T'):
+        return int(arg[:-1]) * 1024 * 1024 * 1024 * 1024
+    else:
+        raise ValueError("Unable to parse value '%s'" % arg)
+
+def pow_arg(arg, n):
+    if type(arg) == list:
+        if len(arg) > 1:
+            raise ValueError(f"spirit:pow {n} must be scalar: {arg}")
+        else:
+            return pow_arg(arg[0], n)
+    elif type(arg) == str:
+        return check_int(float(arg))
+    elif type(arg) in (int, float):
+        return check_int(arg)
+    elif isinstance(arg, ElementTree.Element):
+        return check_int(float(arg.text))
+    else:
+        raise ValueError(f"spirit:pow {n} unknown type: {type(arg)}")
+
+# handle numeric arguments
+def check_int(arg):
+    if abs(int(arg) - arg) < 1e-5:
+        return int(arg)
+    else:
+        return arg
+
+def int_pow(base: int, exp: int) -> int:
+    result = 1
+    while exp > 0:
+        if exp % 2 == 1:
+            result *= base
+        base *= base
+        exp //= 2
+    return result
+
+def spirit_pow(context, arg1, arg2):
+    arg1 = pow_arg(arg1, "arg1")
+    arg2 = pow_arg(arg2, "arg2")
+    if type(arg1) == int and type(arg2) == int:
+        return int_pow(arg1, arg2)
+    return arg1 ** arg2
+
+def spirit_log(context, arg1, arg2):
+    arg1 = pow_arg(arg1, "arg1")
+    arg2 = pow_arg(arg2, "arg2")
+    if type(arg1) == int and type(arg2) == int:
+        if arg1 == 2:
+            return arg2.bit_length() - 1
+        return check_int(math.log(arg1, arg2))
+    return math.log(arg1, arg2)
