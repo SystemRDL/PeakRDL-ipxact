@@ -48,7 +48,7 @@ class IPXACTImporter(RDLImporter):
         return self.default_src_ref
 
 
-    def import_file(self, path: str, remap_state: Optional[str] = None, allow_empty_regs: Optional[bool] = False) -> None:
+    def import_file(self, path: str, remap_state: Optional[str] = None, allow_empty_regs: Optional[bool] = False, config: Optional[str] = "") -> None:
         """
         Import a single SPIRIT or IP-XACT file into the SystemRDL namespace.
 
@@ -65,11 +65,24 @@ class IPXACTImporter(RDLImporter):
         self._addressUnitBits = 8
         self.remap_states_seen = set()
         self.allow_empty_regs = allow_empty_regs
+        if config and config != "":
+            with open(config) as f:
+                for line in f:
+                    line = line.strip()
+                    if '#' in line:
+                        line = line.split('#', 1)[0].strip()
+                    if not line or line == "":
+                        continue
+                    if '=' in line:
+                        key, value = line.split('=', 1)
+                        key = key.strip()
+                        if key in self.parameters:
+                            self.msg.fatal(f"parameter {key} already redefined")
+                        self.parameters[key] = value.strip()
 
         tree = ElementTree.parse(path)
 
         component = self.get_component(tree) # type: ignore
-        self.get_parameters(component)
 
         memoryMaps = self.get_all_memoryMap(component)
 
@@ -103,7 +116,7 @@ class IPXACTImporter(RDLImporter):
                 for el in component.xpath(".//spirit:*[@spirit:id]", namespaces=self.NSMAP)
             }
             ns = ElementTree.FunctionNamespace(None)
-            ns['xid'] = make_xid(id_map)
+            ns['xid'] = make_xid(id_map, self.parameters)
             ns['spirit_pow'] = spirit_pow
             ns['spirit_log'] = spirit_log
         else:
@@ -116,24 +129,6 @@ class IPXACTImporter(RDLImporter):
                 self.prefix = p
                 break
         return component
-
-    # The reason we don't return a dict but rather update it one by one,
-    # allows each parameter to depend on previously defined parameters
-    # Note: We might be able to get away with simply getting them using xpath
-    # when needed instead of precalculating them
-    def get_parameters(self, component: ElementTree.Element) -> None:
-        #parameters_s = component.findall(self.ns+"parameters")
-        #if len(parameters_s) != 1:
-        #    self.msg.fatal(
-        #        "'component' must contain exactly one 'parameters' element",
-        #        self.src_ref
-        #    )
-        #params = parameters_s[0]
-        #for p in params.iter(self.ns+"parameter"):
-        #    n = p.find(self.ns+"name").text
-        #    v = self.get_text(p.find(self.ns+"value"))
-        #    self.parameters[n] = v
-        pass
 
     def get_all_memoryMap(self, component: ElementTree.Element) -> List[ElementTree.Element]:
         # Find <memoryMaps>
@@ -1089,13 +1084,17 @@ def rewrite_id_calls(s):
     mid, tail = tail_parts
     return q.join((rewrite_id_calls(head), mid, rewrite_id_calls(tail)))
 
-def make_xid(id_map):
+# id_map are standard params from IP-XACT file
+# config_map are external ovverides by user
+def make_xid(id_map, config_map):
     def xid(context, value):
         if isinstance(value, list):
             value = value[0] if value else ''
         if isinstance(value, ElementTree._Element):
             value = value.text
         if isinstance(value, str):
+            if value in config_map:
+                return [config_map[value]]
             value = value.strip()
             return [id_map.get(value)] if value in id_map else []
         return []
@@ -1125,7 +1124,7 @@ def pow_arg(arg, n):
             raise ValueError(f"spirit:pow {n} must be scalar: {arg}")
         else:
             return pow_arg(arg[0], n)
-    elif type(arg) == str:
+    elif isinstance(arg, str) or hasattr(arg, 'startswith'): # duck typing to check for either xml and lxml elements
         return check_int(float(arg))
     elif type(arg) in (int, float):
         return check_int(arg)
