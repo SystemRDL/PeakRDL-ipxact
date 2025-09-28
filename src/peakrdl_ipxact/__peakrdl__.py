@@ -83,9 +83,25 @@ class Importer(ImporterPlugin):
             help="Optional remapState string that is used to select memoryRemap regions that are tagged under a specific remap state."
         )
 
+        arg_group.add_argument(
+            "--allow-empty-regs",
+            action="store_true",
+            default=False,
+            help="If True, allow empty IPXact registers to imported as SystemRDL registers without fields"
+        )
+
+        arg_group.add_argument(
+            "--config",
+            type=str,
+            required=False,
+            help="Path to the parameter override configuration file"
+        )
+
     def do_import(self, rdlc: 'RDLCompiler', options: 'argparse.Namespace', path: str) -> None:
         i = IPXACTImporter(rdlc)
         i.import_file(
             path,
-            remap_state=options.remap_state
+            remap_state=options.remap_state,
+            allow_empty_regs=options.allow_empty_regs,
+            config=options.config
         )
