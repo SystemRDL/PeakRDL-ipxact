@@ -107,7 +107,7 @@ class IPXACTExporter:
         if isinstance(node, AddrmapNode) and node.get_property('bridge'):
             self.msg.warning(
                 "IP-XACT generator does not have proper support for bridge addmaps yet. The 'bridge' property will be ignored.",
-                node.inst.property_src_ref.get('bridge', node.inst.inst_src_ref)
+                node.property_src_ref.get('bridge', node.inst_src_ref)
             )
 
         # Initialize XML DOM
@@ -237,7 +237,7 @@ class IPXACTExporter:
                     self.msg.warning(
                         "IP-XACT does not support 'mem' nodes that are nested in hierarchy. Discarding '%s'"
                         % child.get_path(),
-                        child.inst.inst_src_ref
+                        child.inst_src_ref
                     )
         else:
             # registers and registerFiles can be interleaved
@@ -250,7 +250,7 @@ class IPXACTExporter:
                     self.msg.warning(
                         "IP-XACT does not support 'mem' nodes that are nested in hierarchy. Discarding '%s'"
                         % child.get_path(),
-                        child.inst.inst_src_ref
+                        child.inst_src_ref
                     )
 
     #---------------------------------------------------------------------------
@@ -383,7 +383,7 @@ class IPXACTExporter:
             if node.array_stride != (node.get_property("regwidth") / 8):
                 self.msg.fatal(
                     "IP-XACT does not support register arrays whose stride is larger then the register's size",
-                    node.inst.inst_src_ref
+                    node.inst_src_ref
                 )
             for dim in node.array_dimensions:
                 self.add_value(register, self.ns + "dim", "%d" % dim)
